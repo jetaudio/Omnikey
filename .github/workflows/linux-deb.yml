@@ -1,0 +1,54 @@
+name: Build Linux DEB
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'Sources/Omnikey/engine/**'
+      - 'Sources/Omnikey/linux/**'
+      - 'scripts/build-linux.sh'
+      - '.github/workflows/linux-deb.yml'
+      - 'tests/engine_regression.cpp'
+      - 'tests/test_config.h'
+  pull_request:
+    paths:
+      - 'Sources/Omnikey/engine/**'
+      - 'Sources/Omnikey/linux/**'
+      - 'scripts/build-linux.sh'
+      - '.github/workflows/linux-deb.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # The oldest supported Ubuntu (libadwaita 1.5), so the package also installs on newer releases.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config libibus-1.0-dev libadwaita-1-dev
+      - name: Engine tests, build and package
+        run: JOBS=4 bash scripts/build-linux.sh
+      - name: Verify package
+        run: |
+          deb=$(ls dist/ibus-omnikey_*_amd64.deb)
+          dpkg-deb --info "$deb"
+          contents=$(dpkg-deb --contents "$deb")
+          echo "$contents"
+          for path in usr/libexec/ibus-engine-omnikey usr/bin/omnikey-setup usr/share/ibus/component/omnikey.xml \
+                      usr/lib/udev/rules.d/70-omnikey-uinput.rules; do
+            grep -q "./$path\$" <<< "$contents" || { echo "missing $path"; exit 1; }
+          done
+          build/linux/ibus-engine-omnikey --version
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Omnikey-linux-deb
+          path: dist/*.deb
+          if-no-files-found: error
+          retention-days: 30

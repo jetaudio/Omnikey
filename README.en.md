@@ -2,6 +2,7 @@
 
 [![Build macOS DMG](https://github.com/jetaudio/Omnikey/actions/workflows/macos-dmg.yml/badge.svg)](https://github.com/jetaudio/Omnikey/actions/workflows/macos-dmg.yml)
 [![MSBuild](https://github.com/jetaudio/Omnikey/actions/workflows/msbuild.yml/badge.svg)](https://github.com/jetaudio/Omnikey/actions/workflows/msbuild.yml)
+[![Build Linux DEB](https://github.com/jetaudio/Omnikey/actions/workflows/linux-deb.yml/badge.svg)](https://github.com/jetaudio/Omnikey/actions/workflows/linux-deb.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/jetaudio/Omnikey)](https://github.com/jetaudio/Omnikey/releases/latest)
 ![Platforms](https://img.shields.io/badge/platforms-macOS%2012%2B%20%7C%20Windows%20%7C%20Linux-lightgrey)

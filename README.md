@@ -2,6 +2,7 @@
 
 [![Build macOS DMG](https://github.com/jetaudio/Omnikey/actions/workflows/macos-dmg.yml/badge.svg)](https://github.com/jetaudio/Omnikey/actions/workflows/macos-dmg.yml)
 [![MSBuild](https://github.com/jetaudio/Omnikey/actions/workflows/msbuild.yml/badge.svg)](https://github.com/jetaudio/Omnikey/actions/workflows/msbuild.yml)
+[![Build Linux DEB](https://github.com/jetaudio/Omnikey/actions/workflows/linux-deb.yml/badge.svg)](https://github.com/jetaudio/Omnikey/actions/workflows/linux-deb.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 **Một bộ gõ tiếng Việt nguồn mở, dùng chung một engine trên macOS, Windows và Linux (Ubuntu).**
