@@ -9,7 +9,7 @@ on:
 
 env:
   # Path to the solution file relative to the root of the project.
-  SOLUTION_FILE_PATH: .\Sources\OpenKey\win32\OpenKey\OpenKey.sln
+  SOLUTION_FILE_PATH: .\Sources\Omnikey\win32\Omnikey\Omnikey.sln
 
   # Configuration type to build.
   # You can convert this to a build matrix if you need coverage of multiple configuration types.
@@ -37,7 +37,7 @@ jobs:
         @echo off
         call "$vs\VC\Auxiliary\Build\vcvars64.bat"
         if errorlevel 1 exit /b 1
-        cl /nologo /EHsc /std:c++14 /utf-8 /I Sources\OpenKey\engine Sources\OpenKey\engine\*.cpp tests\engine_regression.cpp /Fe:engine-tests.exe
+        cl /nologo /EHsc /std:c++14 /utf-8 /I Sources\Omnikey\engine Sources\Omnikey\engine\*.cpp tests\engine_regression.cpp /Fe:engine-tests.exe
         if errorlevel 1 exit /b 1
         engine-tests.exe
         exit /b %errorlevel%
@@ -51,14 +51,14 @@ jobs:
         foreach ($arch in @('x86', 'x64')) {
           $platform = if ($arch -eq 'x86') { 'Win32' } else { 'x64' }
           $output = "$env:GITHUB_WORKSPACE\ArtifactOutput\$arch\"
-          foreach ($project in @('OpenKey', 'OpenKeyUpdate')) {
-            $source = "$env:GITHUB_WORKSPACE\Sources\OpenKey\win32\OpenKey\$project\$project.vcxproj"
+          foreach ($project in @('Omnikey', 'OmnikeyUpdate')) {
+            $source = "$env:GITHUB_WORKSPACE\Sources\Omnikey\win32\Omnikey\$project\$project.vcxproj"
             $intermediate = "$env:GITHUB_WORKSPACE\build\obj\$project\$arch\"
             msbuild $source -m -target:Rebuild -p:Configuration=Release "-p:Platform=$platform" "-p:OutDir=$output" "-p:IntDir=$intermediate"
             if ($LASTEXITCODE -ne 0) { throw "Build failed: $project $arch" }
           }
-          $main = if ($arch -eq 'x86') { 'OpenKey32.exe' } else { 'OpenKey64.exe' }
-          foreach ($file in @($main, 'OpenKeyUpdate.exe')) {
+          $main = if ($arch -eq 'x86') { 'Omnikey32.exe' } else { 'Omnikey64.exe' }
+          foreach ($file in @($main, 'OmnikeyUpdate.exe')) {
             $path = Join-Path $output $file
             if (!(Test-Path $path)) { throw "Missing artifact: $path" }
             $data = [IO.File]::ReadAllBytes($path)
@@ -69,7 +69,7 @@ jobs:
           }
           python scripts/fetch-rime-windows.py $arch $output
           if ($LASTEXITCODE -ne 0) { throw "Rime packaging failed: $arch" }
-          Copy-Item -LiteralPath (Join-Path $output 'OpenKeyUpdate.exe') -Destination (Join-Path $output "Rime/bin/$arch/OpenKeyUpdate.exe") -Force
+          Copy-Item -LiteralPath (Join-Path $output 'OmnikeyUpdate.exe') -Destination (Join-Path $output "Rime/bin/$arch/OmnikeyUpdate.exe") -Force
           ./scripts/test-windows-rime.ps1 -Architecture $arch -Bundle (Join-Path $output 'Rime')
         }
 
@@ -79,7 +79,7 @@ jobs:
         $version = (Get-Content version.json -Raw | ConvertFrom-Json).latestWinVersion.versionName
         python scripts/package-windows-release.py $version ArtifactOutput dist/release
         if ($LASTEXITCODE -ne 0) { throw 'Release packaging failed' }
-        python tests/windows_update_package_tests.py "dist/release/OpenKey-$version-Windows.zip"
+        python tests/windows_update_package_tests.py "dist/release/Omnikey-$version-Windows.zip"
         if ($LASTEXITCODE -ne 0) { throw 'Updater package tests failed' }
         foreach ($arch in @('x64', 'x86')) {
           ./scripts/test-windows-rime.ps1 -Architecture $arch -Bundle "$env:GITHUB_WORKSPACE/dist/release/staging/$version/combined/Rime"
@@ -89,7 +89,7 @@ jobs:
       id: upload
       uses: actions/upload-artifact@v4
       with:
-        name: OpenKey
+        name: Omnikey
         path: |
           ArtifactOutput/x86/*.exe
           ArtifactOutput/x86/Rime/**
@@ -100,7 +100,7 @@ jobs:
         if-no-files-found: error
 
     outputs:
-      subject-name: OpenKey
+      subject-name: Omnikey
       subject-digest: ${{steps.upload.outputs.artifact-digest}}
 
   attest:

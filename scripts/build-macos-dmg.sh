@@ -9,13 +9,13 @@ if ! xcodebuild -version; then
   exit 1
 fi
 
-build_dir="$(mktemp -d "${TMPDIR:-/tmp}/openkey-build.XXXXXX")"
+build_dir="$(mktemp -d "${TMPDIR:-/tmp}/omnikey-build.XXXXXX")"
 trap 'rm -rf "$build_dir"' EXIT
 mkdir -p dist
 
 xcodebuild \
-  -project Sources/OpenKey/macOS/OpenKey.xcodeproj \
-  -scheme OpenKey \
+  -project Sources/Omnikey/macOS/Omnikey.xcodeproj \
+  -scheme Omnikey \
   -configuration Release \
   -derivedDataPath "$build_dir/DerivedData" \
   -destination 'generic/platform=macOS' \
@@ -29,12 +29,12 @@ xcodebuild \
   OTHER_LDFLAGS=-lc++ \
   build
 
-app_path="$build_dir/DerivedData/Build/Products/Release/OpenKey.app"
+app_path="$build_dir/DerivedData/Build/Products/Release/Omnikey.app"
 test -d "$app_path/Contents/Resources/Base.lproj/Main.storyboardc"
 test -f "$app_path/Contents/Frameworks/librime.1.dylib"
 test -f "$app_path/Contents/Resources/Rime/build/pinyin_simp.table.bin"
 for arch in arm64 x86_64; do
-  lipo "$app_path/Contents/MacOS/OpenKey" -verify_arch "$arch"
+  lipo "$app_path/Contents/MacOS/Omnikey" -verify_arch "$arch"
 done
 codesign --force --sign - "$app_path"
 codesign --verify --deep --strict --verbose=2 "$app_path"
@@ -42,10 +42,10 @@ plutil -lint "$app_path/Contents/Info.plist"
 
 version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_path/Contents/Info.plist")"
 commit="$(git rev-parse --short=12 HEAD)"
-artifact="OpenKey-${version}-${commit}-universal"
+artifact="Omnikey-${version}-${commit}-universal"
 stage_dir="$build_dir/stage"
 mkdir -p "$stage_dir"
-ditto "$app_path" "$stage_dir/OpenKey.app"
+ditto "$app_path" "$stage_dir/Omnikey.app"
 ln -s /Applications "$stage_dir/Applications"
 cp LICENSE "$stage_dir/LICENSE.txt"
 
@@ -57,7 +57,7 @@ cp LICENSE "$stage_dir/LICENSE.txt"
   xcodebuild -version
 } > "dist/${artifact}-BUILD-INFO.txt"
 
-hdiutil create -volname "OpenKey $version" -srcfolder "$stage_dir" \
+hdiutil create -volname "Omnikey $version" -srcfolder "$stage_dir" \
   -format UDZO -ov "dist/${artifact}.dmg"
 hdiutil verify "dist/${artifact}.dmg"
 (cd dist && shasum -a 256 "${artifact}.dmg" > "${artifact}.dmg.sha256")

@@ -1,4 +1,4 @@
-#include "../Sources/OpenKey/win32/OpenKey/OpenKey/WindowsRime.h"
+#include "../Sources/Omnikey/win32/Omnikey/Omnikey/WindowsRime.h"
 #include <iostream>
 #include <algorithm>
 #include <cstdlib>

@@ -1,9 +1,9 @@
-// Load and render the compiled preferences without launching OpenKey or creating
-// an event tap. Defaults belong to this separate QA executable, not OpenKey.app.
+// Load and render the compiled preferences without launching Omnikey or creating
+// an event tap. Defaults belong to this separate QA executable, not Omnikey.app.
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
 #import "ViewController.h"
-#import "OpenKeyManager.h"
+#import "OmnikeyManager.h"
 #import "AppDelegate.h"
 
 extern AppDelegate *appDelegate;
@@ -16,16 +16,16 @@ static void fail(NSString *message) { NSLog(@"UI QA failed: %@", message); exit(
 int main(int argc, const char *argv[]) { @autoreleasepool {
     if (argc != 3) return 2;
     [NSApplication sharedApplication];
-    // OPENKEY_UI_APPEARANCE=dark renders the dark appearance (light by default).
-    const char *appearance=getenv("OPENKEY_UI_APPEARANCE");
+    // OMNIKEY_UI_APPEARANCE=dark renders the dark appearance (light by default).
+    const char *appearance=getenv("OMNIKEY_UI_APPEARANCE");
     NSApp.appearance=[NSAppearance appearanceNamed:(appearance && strcmp(appearance, "dark")==0) ?
         NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
-    Method method=class_getClassMethod([OpenKeyManager class], @selector(initEventTap));
+    Method method=class_getClassMethod([OmnikeyManager class], @selector(initEventTap));
     method_setImplementation(method, (IMP)skipEventTap);
     NSBundle *bundle=[NSBundle bundleWithPath:[NSString stringWithUTF8String:argv[1]]];
     if (bundle==nil) fail(@"missing built app bundle");
     NSWindowController *window=[[NSStoryboard storyboardWithName:@"Main" bundle:bundle]
-        instantiateControllerWithIdentifier:@"OpenKey"];
+        instantiateControllerWithIdentifier:@"Omnikey"];
     ViewController *controller=(ViewController *)window.contentViewController;
     [controller.view layoutSubtreeIfNeeded];
     NSButton *fn=[controller valueForKey:@"CustomSwitchFn"];

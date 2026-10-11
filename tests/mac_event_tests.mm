@@ -34,7 +34,7 @@ static void releaseObject(CFTypeRef);
 #define TISCopyCurrentKeyboardInputSource copyInputSource
 #define TISGetInputSourceProperty inputSourceProperty
 #define CFRelease releaseObject
-#include "../Sources/OpenKey/macOS/ModernKey/OpenKey.mm"
+#include "../Sources/Omnikey/macOS/ModernKey/Omnikey.mm"
 #undef CGEventTapPostEvent
 #undef CGEventCreateKeyboardEvent
 #undef CGWindowListCopyWindowInfo
@@ -46,7 +46,7 @@ static void releaseObject(CFTypeRef);
 
 AppDelegate *appDelegate=nil;
 ViewController *viewController=nil;
-extern "C" void OpenKeyReEnableEventTap(void) { ++recoveryCalls; }
+extern "C" void OmnikeyReEnableEventTap(void) { ++recoveryCalls; }
 
 @interface TestDelegate : NSObject
 - (void)setInputMethod:(int)language willNotify:(BOOL)notify;
@@ -123,7 +123,7 @@ static CGEventRef chineseKey(CGKeyCode key, UniChar character, CGEventFlags flag
     CGEventSetFlags(event,flags);
     if (character) CGEventKeyboardSetUnicodeString(event,1,&character);
     _flag=flags; _keycode=key;
-    CGEventRef result=OpenKeyCallback(NULL,kCGEventKeyDown,event,NULL);
+    CGEventRef result=OmnikeyCallback(NULL,kCGEventKeyDown,event,NULL);
     CFRelease(event);
     return result;
 }
@@ -159,20 +159,20 @@ static std::u16string editedText() {
 static void callbackKey(CGEventType type, CGKeyCode key, CGEventFlags flags) {
     CGEventRef event=CGEventCreateKeyboardEvent(NULL,key,type==kCGEventKeyDown);
     CGEventSetType(event,type); CGEventSetFlags(event,flags);
-    OpenKeyCallback(NULL,type,event,NULL);
+    OmnikeyCallback(NULL,type,event,NULL);
     CFRelease(event);
 }
 
 static void testChineseMode() {
     // The shortcut cycles V -> E -> 中 -> V.
     vChineseMode=0; vLanguage=1; vSwitchKeyStatus=0x7A000206; _lastFlag=0;
-    convertToolHotKey=EMPTY_HOTKEY; // as OpenKeyInit leaves an unset quick-convert key
+    convertToolHotKey=EMPTY_HOTKEY; // as OmnikeyInit leaves an unset quick-convert key
     switchLanguage(); expect(vLanguage==0 && !vChineseMode, "V switches to E");
     switchLanguage(); expect(vChineseMode && vLanguage==0, "E switches to 中 with the engine in English");
     switchLanguage(); expect(!vChineseMode && vLanguage==1, "中 switches back to V");
 
-    const char *root=getenv("OPENKEY_RIME");
-    if (root == NULL) { std::cout << "Chinese mode typing skipped: OPENKEY_RIME not set\n"; return; }
+    const char *root=getenv("OMNIKEY_RIME");
+    if (root == NULL) { std::cout << "Chinese mode typing skipped: OMNIKEY_RIME not set\n"; return; }
     NSString *base=[NSString stringWithUTF8String:root];
     NSString *user=[NSTemporaryDirectory() stringByAppendingPathComponent:[NSUUID UUID].UUIDString];
     testRime=[[OKRime alloc] initWithLibrary:[base stringByAppendingPathComponent:@"lib/librime.1.dylib"]
@@ -200,7 +200,7 @@ static void testChineseMode() {
     expect(chineseKey(KEY_ESC,0)==NULL && [testRime composition]==nil && sent.empty(), "escape cancels");
     chineseKey(KEY_W,'w');
     CGEventRef click=CGEventCreateMouseEvent(NULL,kCGEventLeftMouseDown,CGPointMake(1,1),kCGMouseButtonLeft);
-    OpenKeyCallback(NULL,kCGEventLeftMouseDown,click,NULL);
+    OmnikeyCallback(NULL,kCGEventLeftMouseDown,click,NULL);
     CFRelease(click);
     expect([testRime composition]==nil && sent.empty(), "click elsewhere ends the composition");
     vChineseMode=0; vLanguage=1;
@@ -226,8 +226,8 @@ int main() { @autoreleasepool {
     myEventSource=CGEventSourceCreate(kCGEventSourceStatePrivate);
     pData=(vKeyHookState *)vKeyInit();
     _syncKey={2}; _lastFlag=kCGEventFlagMaskAlternate;
-    expect(OpenKeyCallback(NULL,kCGEventTapDisabledByTimeout,NULL,NULL)==NULL, "timeout handled before dereferencing event");
-    expect(OpenKeyCallback(NULL,kCGEventTapDisabledByUserInput,NULL,NULL)==NULL, "user-input disable handled");
+    expect(OmnikeyCallback(NULL,kCGEventTapDisabledByTimeout,NULL,NULL)==NULL, "timeout handled before dereferencing event");
+    expect(OmnikeyCallback(NULL,kCGEventTapDisabledByUserInput,NULL,NULL)==NULL, "user-input disable handled");
     expect(recoveryCalls==2 && _lastFlag==0 && _syncKey.empty(), "recover tap and discard stale state");
 
     vLanguage=1; vUseMacro=0; vSwitchKeyStatus=0xFE0010FE;
@@ -314,6 +314,6 @@ int main() { @autoreleasepool {
     SendNewCharString();
     expect(typedText()==u"aaaaaaaaaaaaaaaa" && _willSendControlKey, "restore passes original control key through once");
     testChineseMode();
-    OpenKeyFree();
+    OmnikeyFree();
     std::cout << "macOS event regression tests: " << assertions << " assertions passed.\n";
 } }

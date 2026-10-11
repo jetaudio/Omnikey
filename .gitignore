@@ -2,16 +2,17 @@
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
-/Sources/OpenKey/win32/OpenKey/.vs/OpenKey
-/Sources/OpenKey/win32/OpenKey/x64/Debug
-/Sources/OpenKey/win32/OpenKey/x64/Release
-/Sources/OpenKey/win32/OpenKey/OpenKey/x64/Debug
-/Sources/OpenKey/win32/OpenKey/OpenKey/x64/Release
-/Sources/OpenKey/win32/OpenKey/OpenKeyUpdate/x64/Release
+/Sources/Omnikey/win32/Omnikey/.vs/Omnikey
+/Sources/Omnikey/win32/Omnikey/x64/Debug
+/Sources/Omnikey/win32/Omnikey/x64/Release
+/Sources/Omnikey/win32/Omnikey/Omnikey/x64/Debug
+/Sources/Omnikey/win32/Omnikey/Omnikey/x64/Release
+/Sources/Omnikey/win32/Omnikey/OmnikeyUpdate/x64/Release
 
 # Local macOS build artifacts
 .DS_Store
 /dist/
 
 # Downloaded by scripts/fetch-rime.sh
-/Sources/OpenKey/macOS/ThirdParty/
+/Sources/Omnikey/macOS/ThirdParty/
+/build/

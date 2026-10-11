@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Omnikey
+GenericName=Vietnamese Input Method Settings
+GenericName[vi]=Cài đặt bộ gõ tiếng Việt
+Comment=Configure the Omnikey Vietnamese input method
+Comment[vi]=Cài đặt bộ gõ tiếng Việt Omnikey
+Exec=omnikey-setup
+Icon=io.github.jetaudio.Omnikey
+Terminal=false
+Categories=Settings;GTK;
+Keywords=vietnamese;telex;vni;ibus;input;tieng viet;
+StartupNotify=true

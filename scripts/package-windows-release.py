@@ -35,7 +35,7 @@ def add_rime(source, target, arch, common=True):
             shutil.copytree(source / 'Rime' / name, target / 'Rime' / name, dirs_exist_ok=True)
     architecture = target / 'Rime' / 'bin' / arch
     architecture.mkdir(parents=True, exist_ok=True)
-    for name in ('rime.dll', 'OpenKeyUpdate.exe'):
+    for name in ('rime.dll', 'OmnikeyUpdate.exe'):
         shutil.copy2(source / 'Rime' / 'bin' / arch / name, architecture / name)
 
 
@@ -53,42 +53,52 @@ def archive(directory, output):
 def package(build, output, release):
     output.mkdir(parents=True, exist_ok=True)
     stages = {}
-    for arch, main, machine in [('x64', 'OpenKey64.exe', 0x8664), ('x86', 'OpenKey32.exe', 0x14c)]:
+    for arch, main, machine in [('x64', 'Omnikey64.exe', 0x8664), ('x86', 'Omnikey32.exe', 0x14c)]:
         source = build / arch
-        for filename in (main, 'OpenKeyUpdate.exe'):
+        for filename in (main, 'OmnikeyUpdate.exe'):
             verify_pe(source / filename, machine)
         verify_pe(source / 'Rime' / 'bin' / arch / 'rime.dll', machine)
         if version(source / main) != release:
             raise RuntimeError('Application version does not match release: ' + str(source / main))
         target = output / 'staging' / release / arch
         target.mkdir(parents=True, exist_ok=True)
-        for name in (main, 'OpenKeyUpdate.exe'):
+        for name in (main, 'OmnikeyUpdate.exe'):
             shutil.copy2(source / name, target / name)
         add_rime(source, target, arch)
         stages[arch] = target
     combined = output / 'staging' / release / 'combined'
     combined.mkdir(parents=True, exist_ok=True)
-    for arch, main in [('x64', 'OpenKey64.exe'), ('x86', 'OpenKey32.exe')]:
+    for arch, main in [('x64', 'Omnikey64.exe'), ('x86', 'Omnikey32.exe')]:
         shutil.copy2(stages[arch] / main, combined / main)
         add_rime(build / arch, combined, arch, common=arch == 'x64')
     # The x86 helper runs on either Windows architecture and detects its target.
-    shutil.copy2(stages['x86'] / 'OpenKeyUpdate.exe', combined / 'OpenKeyUpdate.exe')
+    shutil.copy2(stages['x86'] / 'OmnikeyUpdate.exe', combined / 'OmnikeyUpdate.exe')
     instructions = (
-        f'OpenKey {release} for Windows\n\n'
+        f'Omnikey {release} for Windows\n\n'
         'Extract the entire ZIP and keep the Rime folder beside the EXE.\n'
-        'Run OpenKey64.exe on 64-bit Windows, OpenKey32.exe on 32-bit Windows.\n'
+        'Run Omnikey64.exe on 64-bit Windows, Omnikey32.exe on 32-bit Windows.\n'
         'Alt+Z cycles Vietnamese -> English -> Chinese -> Vietnamese.\n'
         'Chinese Pinyin: nihao + Space = 你好. Numbers select candidates;\n'
         'PgUp/PgDn change pages; Esc cancels.\n'
-        'https://github.com/jetaudio/OpenKey\n'
+        'https://github.com/jetaudio/Omnikey\n'
     )
     assets = []
     for suffix, directory in [('x64', stages['x64']), ('x86', stages['x86']), ('', combined)]:
         (directory / 'README-Windows.txt').write_text(instructions, encoding='utf-8')
-        filename = f'OpenKey-{release}-Windows' + ('-' + suffix if suffix else '') + '.zip'
+        filename = f'Omnikey-{release}-Windows' + ('-' + suffix if suffix else '') + '.zip'
         path = output / filename
         archive(directory, path)
         assets.append(path)
+    # OpenKey 2.1.1 and earlier download OpenKey-<version>-Windows.zip and look
+    # for OpenKey64.exe/OpenKey32.exe in it. This package lets them update to
+    # Omnikey; the new updater keeps those EXE names afterwards.
+    legacy = output / 'staging' / release / 'legacy'
+    shutil.copytree(combined, legacy, dirs_exist_ok=True)
+    for main in ('Omnikey64.exe', 'Omnikey32.exe'):
+        (legacy / main).rename(legacy / main.replace('Omnikey', 'OpenKey'))
+    path = output / f'OpenKey-{release}-Windows.zip'
+    archive(legacy, path)
+    assets.append(path)
     checksums = '\n'.join(hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.name for path in assets) + '\n'
     (output / 'SHA256SUMS.txt').write_text(checksums, encoding='ascii')
     print(checksums, end='')

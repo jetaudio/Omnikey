@@ -5,8 +5,8 @@ on:
   push:
     branches: [master]
     paths:
-      - 'Sources/OpenKey/engine/**'
-      - 'Sources/OpenKey/macOS/**'
+      - 'Sources/Omnikey/engine/**'
+      - 'Sources/Omnikey/macOS/**'
       - 'scripts/build-macos-dmg.sh'
       - '.github/workflows/macos-dmg.yml'
       - 'tests/**'
@@ -33,7 +33,7 @@ jobs:
       - name: Upload DMG and build information
         uses: actions/upload-artifact@v4
         with:
-          name: OpenKey-macos-universal
+          name: Omnikey-macos-universal
           path: dist/*
           if-no-files-found: error
           retention-days: 30

@@ -10,6 +10,33 @@ identified by the source commit in their file name, for example
 
 ## [Unreleased]
 
+### Changed
+
+- The project is renamed from OpenKey to **Omnikey**, and the repository moved to
+  `jetaudio/Omnikey`. Source paths, project files, binaries (`Omnikey.app`,
+  `Omnikey64.exe`, `ibus-omnikey`) and the macOS bundle ID
+  (`io.github.jetaudio.omnikey`) follow the new name.
+  - Windows copies settings from `HKCU\SOFTWARE\TuyenMai\OpenKey` to
+    `HKCU\SOFTWARE\jetaudio\Omnikey` and removes the old `OpenKey` startup
+    entries. Releases also ship `OpenKey-<version>-Windows.zip` with the old EXE
+    names, so existing installs can update. The updater then keeps those names.
+  - macOS copies the `com.tuyenmai.openkey` preferences once. Accessibility
+    access must be granted again.
+
+### Added
+
+- Linux port for IBus (Ubuntu, GNOME, Wayland and X11), using the shared engine.
+  - The settings app is built with GTK 4 and libadwaita.
+  - Edit-in-place mode types without underlines and works in terminals. It
+    sends real BackSpace keys through a `uinput` virtual keyboard and handles
+    browser autocomplete and clicks elsewhere.
+  - An underlined-preedit mode is also available.
+  - `scripts/build-linux.sh` builds a `.deb` package.
+
+### Fixed
+
+- `ConvertTool.cpp` now includes `<algorithm>`, which GCC requires.
+
 ## [2.1.0] – 2026-10-07
 
 Windows 2.1.0. macOS remains at 2.0.6 (build 50).

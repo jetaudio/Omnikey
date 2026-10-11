@@ -32,17 +32,17 @@ static BOOL WINAPI TestCloseHandle(HANDLE handle)
 
 #define CreateProcessW TestCreateProcessW
 #define CloseHandle TestCloseHandle
-#include "../Sources/OpenKey/win32/OpenKey/OpenKeyUpdate/RestartOpenKey.h"
+#include "../Sources/Omnikey/win32/Omnikey/OmnikeyUpdate/RestartOmnikey.h"
 #undef CreateProcessW
 #undef CloseHandle
 
 int main()
 {
     // Never launch an actual app. Capture the production Win32 call instead.
-    const wchar_t* directory = L"C:\\Ứng dụng\\OpenKey cập nhật";
-    for (const wchar_t* exe : { L"OpenKey64.exe", L"OpenKey32.exe" }) {
+    const wchar_t* directory = L"C:\\Ứng dụng\\Omnikey cập nhật";
+    for (const wchar_t* exe : { L"Omnikey64.exe", L"Omnikey32.exe" }) {
         closedHandles.clear();
-        assert(RestartOpenKey(directory, exe));
+        assert(RestartOmnikey(directory, exe));
         assert(application == std::wstring(directory) + L"\\" + exe);
         assert(commandLine == L"\"" + application + L"\"");
         assert(workingDirectory == directory);
@@ -50,11 +50,11 @@ int main()
         assert(closedHandles[0] == reinterpret_cast<HANDLE>(1));
         assert(closedHandles[1] == reinterpret_cast<HANDLE>(2));
     }
-    assert(RestartOpenKey(L"C:\\OpenKey\\", L"OpenKey64.exe"));
-    assert(application == L"C:\\OpenKey\\OpenKey64.exe");
+    assert(RestartOmnikey(L"C:\\Omnikey\\", L"Omnikey64.exe"));
+    assert(application == L"C:\\Omnikey\\Omnikey64.exe");
     launchSucceeds = false;
     closedHandles.clear();
-    assert(!RestartOpenKey(directory, L"OpenKey64.exe"));
+    assert(!RestartOmnikey(directory, L"Omnikey64.exe"));
     assert(closedHandles.empty());
     std::cout << "Updater restart tests passed (x64/x86 targets, Unicode paths, quoting, failure, handles)\n";
 }

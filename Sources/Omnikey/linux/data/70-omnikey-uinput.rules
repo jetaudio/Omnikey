@@ -1,0 +1,3 @@
+# Lets the user at the seat create Omnikey's virtual keyboard, which sends
+# real BackSpace keys to apps (such as terminals) that ignore IBus deletions.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"

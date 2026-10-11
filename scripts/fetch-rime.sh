@@ -1,13 +1,13 @@
 #!/bin/bash
 # Download librime and the Rime Pinyin data at pinned versions, verify them and
-# precompile the schema. Output (git-ignored): Sources/OpenKey/macOS/ThirdParty/Rime
-#   lib/librime.1.dylib   universal librime, embedded in OpenKey.app/Contents/Frameworks
+# precompile the schema. Output (git-ignored): Sources/Omnikey/macOS/ThirdParty/Rime
+#   lib/librime.1.dylib   universal librime, embedded in Omnikey.app/Contents/Frameworks
 #   shared/               Rime configuration read at run time
 #   build/                prebuilt dictionaries, so the first launch needs no deployment
 #   licenses/             license texts of the bundled components
 set -euo pipefail
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
-out_dir="$repo_dir/Sources/OpenKey/macOS/ThirdParty/Rime"
+out_dir="$repo_dir/Sources/Omnikey/macOS/ThirdParty/Rime"
 
 LIBRIME_TAG=1.17.0
 LIBRIME_ASSET=rime-33e7814-macOS-universal.tar.bz2
@@ -17,14 +17,14 @@ DATA=(
   "rime-essay 054920de4f54c9e5994276a96a4fc2a35cb51aa3 3339b40aae91b0216d393aeccc6a8f7daad56a1f3a5e1ffcf464c80690d1b6ce"
   "rime-pinyin-simp 0c6861ef7420ee780270ca6d993d18d4101049d0 46f37114a7929ecc01003a236803c8b1e5198382e6a21f83fae036604a6b08bf"
 )
-config="$repo_dir/Sources/OpenKey/macOS/Rime/default.custom.yaml"
+config="$repo_dir/Sources/Omnikey/macOS/Rime/default.custom.yaml"
 LAYOUT=2  # bump when the output layout changes
 stamp="$LAYOUT $LIBRIME_SHA256 ${DATA[*]} $(shasum -a 256 "$config" | cut -d' ' -f1)"
 if [ -f "$out_dir/.stamp" ] && [ "$(cat "$out_dir/.stamp")" = "$stamp" ]; then
   exit 0
 fi
 
-work="$(mktemp -d "${TMPDIR:-/tmp}/openkey-rime.XXXXXX")"
+work="$(mktemp -d "${TMPDIR:-/tmp}/omnikey-rime.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 fetch() { # url sha256 output
   curl -fsSL --retry 3 -o "$3" "$1"

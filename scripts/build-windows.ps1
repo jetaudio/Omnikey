@@ -17,7 +17,7 @@ foreach ($arch in $Architectures) {
     $intermediate = Join-Path $repo "dist\obj\windows-$arch"
     $arguments = @('-m', '-target:Build', '-p:Configuration=Release', "-p:Platform=$platform", ('-p:OutDir=' + $output.Replace('\', '/') + '/'), ('-p:IntDir=' + $intermediate.Replace('\', '/') + '/'))
     if ($PlatformToolset) { $arguments += "-p:PlatformToolset=$PlatformToolset" }
-    & $msbuild (Join-Path $repo 'Sources\OpenKey\win32\OpenKey\OpenKey\OpenKey.vcxproj') @arguments
+    & $msbuild (Join-Path $repo 'Sources\Omnikey\win32\Omnikey\Omnikey\Omnikey.vcxproj') @arguments
     if ($LASTEXITCODE -ne 0) { throw "Build failed ($arch)." }
     & python (Join-Path $PSScriptRoot 'fetch-rime-windows.py') $arch $output
     if ($LASTEXITCODE -ne 0) { throw "Rime packaging failed ($arch)." }
@@ -25,10 +25,10 @@ foreach ($arch in $Architectures) {
     $updaterIntermediate = Join-Path $repo "dist\obj\updater-$arch"
     $updaterArguments = @('-m', '-target:Build', '-p:Configuration=Release', "-p:Platform=$platform", ('-p:OutDir=' + $output.Replace('\', '/') + '/'), ('-p:IntDir=' + $updaterIntermediate.Replace('\', '/') + '/'))
     if ($PlatformToolset) { $updaterArguments += "-p:PlatformToolset=$PlatformToolset" }
-    & $msbuild (Join-Path $repo 'Sources\OpenKey\win32\OpenKey\OpenKeyUpdate\OpenKeyUpdate.vcxproj') @updaterArguments
+    & $msbuild (Join-Path $repo 'Sources\Omnikey\win32\Omnikey\OmnikeyUpdate\OmnikeyUpdate.vcxproj') @updaterArguments
     if ($LASTEXITCODE -ne 0) { throw "Updater build failed ($arch)." }
     $helperDirectory = Join-Path $output "Rime\bin\$arch"
     New-Item -ItemType Directory -Force -Path $helperDirectory | Out-Null
-    Copy-Item -LiteralPath (Join-Path $output 'OpenKeyUpdate.exe') -Destination (Join-Path $helperDirectory 'OpenKeyUpdate.exe') -Force
-    Write-Host "OpenKey with Pinyin ready: $output"
+    Copy-Item -LiteralPath (Join-Path $output 'OmnikeyUpdate.exe') -Destination (Join-Path $helperDirectory 'OmnikeyUpdate.exe') -Force
+    Write-Host "Omnikey with Pinyin ready: $output"
 }

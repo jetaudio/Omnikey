@@ -17,11 +17,11 @@ static bool isEnabled(CFMachPortRef);
 #define CFRunLoopRemoveSource removeSource
 #define CGEventTapEnable enableTap
 #define CGEventTapIsEnabled isEnabled
-#include "../Sources/OpenKey/macOS/ModernKey/OpenKeyManager.m"
+#include "../Sources/Omnikey/macOS/ModernKey/OmnikeyManager.m"
 
-void OpenKeyInit(void) { ++initializations; }
-void OpenKeyFree(void) { ++frees; }
-CGEventRef OpenKeyCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) { return event; }
+void OmnikeyInit(void) { ++initializations; }
+void OmnikeyFree(void) { ++frees; }
+CGEventRef OmnikeyCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) { return event; }
 NSString *ConvertUtil(NSString *str) { return str; }
 
 static CFMachPortRef createTap(CGEventTapLocation location, CGEventTapPlacement placement,
@@ -44,28 +44,28 @@ static void expect(BOOL condition, const char *label) {
 }
 int main(void) { @autoreleasepool {
     failTap=YES;
-    expect(![OpenKeyManager initEventTap], "failed tap creation is reported");
-    expect(![OpenKeyManager isInited] && frees==1 && watchdogTimer==NULL, "failed initialization cleans engine state");
+    expect(![OmnikeyManager initEventTap], "failed tap creation is reported");
+    expect(![OmnikeyManager isInited] && frees==1 && watchdogTimer==NULL, "failed initialization cleans engine state");
     failTap=NO; failSource=YES;
-    expect(![OpenKeyManager initEventTap], "failed source creation is reported");
+    expect(![OmnikeyManager initEventTap], "failed source creation is reported");
     expect(eventTap==NULL && frees==2 && invalidations==1, "failed source creation releases tap");
     failSource=NO;
-    expect([OpenKeyManager initEventTap], "successful initialization");
-    expect([OpenKeyManager isInited] && additions==1 && watchdogTimer!=NULL, "watchdog and source initialized");
-    expect([OpenKeyManager initEventTap] && initializations==3, "repeated initialization is idempotent");
+    expect([OmnikeyManager initEventTap], "successful initialization");
+    expect([OmnikeyManager isInited] && additions==1 && watchdogTimer!=NULL, "watchdog and source initialized");
+    expect([OmnikeyManager initEventTap] && initializations==3, "repeated initialization is idempotent");
     int before=enables;
     tapEnabled=NO;
     CFRunLoopTimerSetNextFireDate(watchdogTimer, CFAbsoluteTimeGetCurrent()-1);
     CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.02, false);
     expect(tapEnabled && enables==before+1, "watchdog re-enables a disabled tap");
-    [OpenKeyManager stopEventTap];
-    expect(![OpenKeyManager isInited] && eventTap==NULL && runLoopSource==NULL && watchdogTimer==NULL,
+    [OmnikeyManager stopEventTap];
+    expect(![OmnikeyManager isInited] && eventTap==NULL && runLoopSource==NULL && watchdogTimer==NULL,
            "stop releases all lifecycle objects");
     expect(removals==1 && frees==3, "stop frees engine and removes source");
-    [OpenKeyManager stopEventTap];
+    [OmnikeyManager stopEventTap];
     expect(frees==3, "repeated stop is idempotent");
     before=enables;
-    OpenKeyReEnableEventTap();
+    OmnikeyReEnableEventTap();
     expect(enables==before, "stopped tap cannot be resurrected");
     printf("macOS event tap lifecycle tests: %d assertions passed.\n", assertions);
 } }

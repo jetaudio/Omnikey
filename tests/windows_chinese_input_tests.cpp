@@ -1,8 +1,8 @@
 // Exercise the real Windows input queue/panel code. Only desktop input and
 // presentation are mocked: tests never type into the user's foreground app.
-#include "../Sources/OpenKey/win32/OpenKey/OpenKey/stdafx.h"
-#include "../Sources/OpenKey/win32/OpenKey/OpenKey/AppDelegate.h"
-#include "../Sources/OpenKey/win32/OpenKey/OpenKey/CandidatePanel.h"
+#include "../Sources/Omnikey/win32/Omnikey/Omnikey/stdafx.h"
+#include "../Sources/Omnikey/win32/Omnikey/Omnikey/AppDelegate.h"
+#include "../Sources/Omnikey/win32/Omnikey/Omnikey/CandidatePanel.h"
 #include <shlobj.h>
 #include <iostream>
 #include <cstdlib>
@@ -22,7 +22,7 @@ static HWND WINAPI testForeground() { return foreground; }
 static UINT WINAPI testSendInput(UINT count, LPINPUT inputs, int size) {
     expect(size == sizeof(INPUT), "valid SendInput structure size");
     for (UINT i = 0; i < count; ++i) {
-        expect(inputs[i].ki.dwExtraInfo == 1, "commit events carry OpenKey marker");
+        expect(inputs[i].ki.dwExtraInfo == 1, "commit events carry Omnikey marker");
         if (!(inputs[i].ki.dwFlags & KEYEVENTF_KEYUP)) {
             if (inputs[i].ki.dwFlags & KEYEVENTF_UNICODE) committed += inputs[i].ki.wScan;
             else forwarded.push_back(inputs[i].ki.wVk);
@@ -82,7 +82,7 @@ void AppDelegate::selectInputMode(int mode) {
 #define GetKeyState testKeyState
 #define ToUnicodeEx testUnicode
 #define MessageBoxW testMessageBox
-#include "../Sources/OpenKey/win32/OpenKey/OpenKey/ChineseInput.cpp"
+#include "../Sources/Omnikey/win32/Omnikey/Omnikey/ChineseInput.cpp"
 
 static void pump() {
     MSG message;
@@ -104,7 +104,7 @@ static void type(const char* text) {
 
 int wmain(int argc, wchar_t** argv) {
     if (argc != 3) return 2;
-    fakeExecutable = std::wstring(argv[1]) + L"\\OpenKey.exe";
+    fakeExecutable = std::wstring(argv[1]) + L"\\Omnikey.exe";
     testData = argv[2];
     ChineseInput::start();
     DWORD deadline = GetTickCount() + 30000;

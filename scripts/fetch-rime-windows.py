@@ -63,8 +63,8 @@ def bundle(arch, output):
                         target = rime / ('licenses' if filename == 'LICENSE' else 'shared')
                         target /= name + '-LICENSE.txt' if filename == 'LICENSE' else filename
                         target.write_bytes(tar.extractfile(member).read())
-    shutil.copy2(ROOT / 'Sources/OpenKey/macOS/Rime/default.custom.yaml', rime / 'shared/default.custom.yaml')
-    shutil.copy2(ROOT / 'Sources/OpenKey/macOS/Rime/LICENSE-librime.txt', rime / 'licenses/librime-LICENSE.txt')
+    shutil.copy2(ROOT / 'Sources/Omnikey/macOS/Rime/default.custom.yaml', rime / 'shared/default.custom.yaml')
+    shutil.copy2(ROOT / 'Sources/Omnikey/macOS/Rime/LICENSE-librime.txt', rime / 'licenses/librime-LICENSE.txt')
     # Keep tools next to the DLL for Windows' DLL search path.
     deployer = rime / 'bin/rime_deployer.exe'
     shutil.copy2(unpack / 'dist/bin/rime_deployer.exe', deployer)
