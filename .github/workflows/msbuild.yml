@@ -76,7 +76,9 @@ jobs:
     - name: Verify complete Windows release packages
       shell: pwsh
       run: |
-        $version = (Get-Content version.json -Raw | ConvertFrom-Json).latestWinVersion.versionName
+        # Package the actual binary version; updater metadata is published after release assets.
+        $version = [Diagnostics.FileVersionInfo]::GetVersionInfo("$env:GITHUB_WORKSPACE/ArtifactOutput/x64/Omnikey64.exe").FileVersion
+        $version = ($version -split '\.')[0..2] -join '.'
         python scripts/package-windows-release.py $version ArtifactOutput dist/release
         if ($LASTEXITCODE -ne 0) { throw 'Release packaging failed' }
         python tests/windows_update_package_tests.py "dist/release/Omnikey-$version-Windows.zip"

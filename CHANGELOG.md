@@ -8,7 +8,7 @@ The fork is based on upstream [tuyenvm/OpenKey](https://github.com/tuyenvm/OpenK
 identified by the source commit in their file name, for example
 `OpenKey-2.0.5-<commit>-universal.dmg`. The upstream history is kept below.
 
-## [2.0.7] - 2026-10-12 (macOS)
+## [2.0.7] - 2026-10-12
 
 ### Added
 
@@ -27,7 +27,11 @@ identified by the source commit in their file name, for example
 
 - Install this release manually once to obtain the updater. Future releases
   must include the universal DMG and its matching `.dmg.sha256` asset.
-- macOS version is 2.0.7, build 51. Windows version metadata remains 2.1.1.
+- All three platforms use version 2.0.7; macOS build number is 51.
+- Windows includes x64/x86 and combined ZIPs with Rime and the updater. Linux
+  includes an amd64 DEB for Ubuntu 24.04 and compatible newer distributions.
+- Windows 2.1.1 users must install 2.0.7 manually because its semantic version
+  is lower; the unified numbering starts with this release.
 - macOS builds are ad hoc signed and are not notarized.
 
 ## [Unreleased]
