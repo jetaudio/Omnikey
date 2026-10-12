@@ -242,22 +242,20 @@ static const CGFloat kSettingsMaxHeight = 640;
 
 - (NSScrollView *)buildAboutPage {
     NSArray<NSView *> *header = [form aboutHeaderWithVersionField:self.VersionInfo];
-    NSTextField *about = [form labelWithString:@"Omnikey cho macOS là phần mềm mã nguồn mở, phát hành miễn phí. Bạn có thể góp ý và đề xuất tính năng mới qua email của tác giả hoặc trên GitHub."
+    NSTextField *about = [form labelWithString:@"Omnikey là bộ gõ đa nền tảng mã nguồn mở, được phát triển và duy trì tại GitHub của Omnikey, tiếp nối công trình ban đầu của Mai Vũ Tuyên."
                                           font:[NSFont systemFontOfSize:12] color:[NSColor secondaryLabelColor]];
     about.alignment = NSTextAlignmentCenter;
     about.preferredMaxLayoutWidth = 420;
 
     NSStackView *links = [NSStackView stackViewWithViews:@[
         [OKFormBuilder pushButtonWithTitle:@"Trang chủ" target:self action:@selector(onHomePageLink:)],
-        [OKFormBuilder pushButtonWithTitle:@"Facebook" target:self action:@selector(onFanpageLink:)],
+        [OKFormBuilder pushButtonWithTitle:@"Góp ý" target:self action:@selector(onFanpageLink:)],
         [OKFormBuilder pushButtonWithTitle:@"Mã nguồn" target:self action:@selector(onSourceCode:)],
     ]];
     links.spacing = 8;
 
-    NSTextField *copyright = [form labelWithString:@"© 2019 Mai Vũ Tuyên" font:[NSFont systemFontOfSize:11] color:[NSColor tertiaryLabelColor]];
-    NSStackView *footer = [NSStackView stackViewWithViews:@[copyright,
-        [OKFormBuilder linkButtonWithTitle:@"maivutuyen.91@gmail.com" target:self action:@selector(onEmailLink:)]]];
-    footer.spacing = 6;
+    NSTextField *copyright = [form labelWithString:@"Omnikey · mã nguồn mở theo GPL-3.0" font:[NSFont systemFontOfSize:11] color:[NSColor tertiaryLabelColor]];
+    NSStackView *footer = [NSStackView stackViewWithViews:@[copyright]];
 
     for (NSTextField *label in @[about, copyright]) {
         label.alignment = NSTextAlignmentCenter;
@@ -709,11 +707,11 @@ static const CGFloat kSettingsMaxHeight = 640;
 }
 
 - (IBAction)onHomePageLink:(id)sender {
-    [[NSWorkspace sharedWorkspace] openURL: [NSURL URLWithString:@"https://open-key.org"]];
+    [[NSWorkspace sharedWorkspace] openURL: [NSURL URLWithString:@"https://github.com/jetaudio/Omnikey"]];
 }
 
 - (IBAction)onFanpageLink:(id)sender {
-    [[NSWorkspace sharedWorkspace] openURL: [NSURL URLWithString:@"https://www.facebook.com/OpenKeyVN"]];
+    [[NSWorkspace sharedWorkspace] openURL: [NSURL URLWithString:@"https://github.com/jetaudio/Omnikey/issues"]];
 }
 
 - (IBAction)onEmailLink:(id)sender {

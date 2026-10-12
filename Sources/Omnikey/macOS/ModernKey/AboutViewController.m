@@ -42,7 +42,7 @@ static const CGFloat kAboutWidth = 400;
     NSStackView *links = [NSStackView stackViewWithViews:@[
         [OKFormBuilder pushButtonWithTitle:@"Trang chủ" target:self action:@selector(onHomePage:)],
         [OKFormBuilder pushButtonWithTitle:@"Bản phát hành" target:self action:@selector(onLatestReleaseVersion:)],
-        [OKFormBuilder pushButtonWithTitle:@"Fanpage" target:self action:@selector(onFanPage:)],
+        [OKFormBuilder pushButtonWithTitle:@"Góp ý" target:self action:@selector(onFanPage:)],
     ]];
     links.spacing = 8;
 
@@ -55,7 +55,7 @@ static const CGFloat kAboutWidth = 400;
     checkOnStartup.font = [NSFont systemFontOfSize:12];
     checkOnStartup.translatesAutoresizingMaskIntoConstraints = NO;
 
-    NSTextField *copyright = [form labelWithString:@"© 2019 Mai Vũ Tuyên" font:[NSFont systemFontOfSize:11] color:[NSColor tertiaryLabelColor]];
+    NSTextField *copyright = [form labelWithString:@"Omnikey · mã nguồn mở theo GPL-3.0" font:[NSFont systemFontOfSize:11] color:[NSColor tertiaryLabelColor]];
     copyright.alignment = NSTextAlignmentCenter;
     [copyright setContentHuggingPriority:NSLayoutPriorityDefaultHigh forOrientation:NSLayoutConstraintOrientationHorizontal];
 
@@ -97,7 +97,7 @@ static const CGFloat kAboutWidth = 400;
 }
 
 - (IBAction)onFanPage:(id)sender {
-    [[NSWorkspace sharedWorkspace] openURL: [NSURL URLWithString:@"https://www.facebook.com/OpenKeyVN"]];
+    [[NSWorkspace sharedWorkspace] openURL: [NSURL URLWithString:@"https://github.com/jetaudio/Omnikey/issues"]];
 }
 
 - (IBAction)onLatestReleaseVersion:(id)sender {
