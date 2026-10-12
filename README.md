@@ -157,7 +157,7 @@ sudo apt install build-essential cmake pkg-config libibus-1.0-dev libadwaita-1-d
 ## Hạn chế đã biết
 
 - **Chữ ký:** bản build chỉ ký ad hoc và chưa notarize.
-- **Cập nhật tự động:** từ bản 2.0.6, app kiểm tra bản mới trên repo này. Bản 2.0.5 vẫn đọc `version.json` của repo gốc, nên sẽ không tự báo có bản mới; hãy tải 2.0.6 từ trang Releases. Trên macOS, bản có updater mới sẽ tải, xác minh và cài DMG sau khi bấm "Có", rồi tự mở lại. Bản chưa có updater cần cài thủ công một lần. Release cần có DMG universal và file `.dmg.sha256`; ứng dụng phải nằm trong thư mục có quyền ghi. Updater Windows chỉ tự thay `Omnikey64.exe`.
+- **Cập nhật tự động:** từ bản 2.0.6, app kiểm tra bản mới trên repo này. Bản 2.0.5 vẫn đọc `version.json` của repo gốc, nên sẽ không tự báo có bản mới; hãy tải 2.0.6 từ trang Releases. Trên macOS, bản có updater mới sẽ tải, xác minh và cài DMG sau khi bấm "Có", rồi tự mở lại. Bản chưa có updater cần cài thủ công một lần. Release cần có DMG universal và file `.dmg.sha256`; ứng dụng phải nằm trong thư mục có quyền ghi. Updater Windows thay EXE phù hợp kiến trúc cùng thư mục Rime. Từ release 2.0.7, ba nền tảng dùng chung số phiên bản; Windows 2.1.1 cần cài 2.0.7 thủ công vì số phiên bản mới thấp hơn.
 - **Chưa kiểm thử tương tác lâu dài:** các tình huống sau chưa được thử bằng tay trong thời gian dài. Kiểm thử tự động chỉ dùng mock cho các tương tác hệ thống này.
   - gõ trong Apple Mail, WebKit và Spotlight
   - sleep/wake

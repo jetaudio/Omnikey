@@ -204,3 +204,12 @@ reattach the current DMG **and its checksum** to the latest release.
 | --- | --- | --- |
 | [Build macOS DMG](.github/workflows/macos-dmg.yml) | Pushes to `master` that touch the engine, macOS sources, tests or scripts. Can also be started manually. | Runs the engine, Rime, event and updater tests, then builds and verifies the universal DMG. Artifact: **Omnikey-macos-universal** |
 | [MSBuild](.github/workflows/msbuild.yml) | Pushes and pull requests to `master`. Can also be started manually. | Runs the engine tests with MSVC, then builds the x86 and x64 app and updater and checks each PE machine type. Artifact: **Omnikey**, with a build-provenance attestation |
+
+
+## Unified 2.0.7 release
+
+Windows packaging reads the built EXE version resource in CI, so binaries can
+be prepared before publishing `latestWinVersion` update metadata. Release 2.0.7
+uses `FILEVERSION 2,0,7,0`, Linux CMake project version 2.0.7, and Windows metadata
+code `458754` (`2 | (0 << 8) | (7 << 16)`). Windows 2.1.1 is semantically newer
+than 2.0.7, so those users need a manual install to enter the unified numbering.

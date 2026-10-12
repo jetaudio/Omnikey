@@ -201,7 +201,7 @@ docs/images/         Screenshots
 ## Known limitations
 
 - **Unsigned builds:** builds are signed ad hoc and not notarized.
-- **Update checks:** from 2.0.6, the app checks this repository for new versions. Version 2.0.5 still reads the upstream `version.json`, so it does not announce new fork releases; download 2.0.6 manually. On macOS, builds with the new updater download, verify and install the DMG after confirmation, then relaunch. Older builds need one manual installation. Releases must include a universal DMG and its `.dmg.sha256` file; the application directory must be writable. The Windows updater replaces only `Omnikey64.exe`.
+- **Update checks:** from 2.0.6, the app checks this repository for new versions. Version 2.0.5 still reads the upstream `version.json`, so it does not announce new fork releases; download 2.0.6 manually. On macOS, builds with the new updater download, verify and install the DMG after confirmation, then relaunch. Older builds need one manual installation. Releases must include a universal DMG and its `.dmg.sha256` file; the application directory must be writable. The Windows updater replaces the matching architecture EXE and Rime payload. Version 2.0.7 unifies numbering across all three platforms; Windows 2.1.1 users must install 2.0.7 manually because its version number is lower.
 - **No long-term interactive testing:** these situations have not been tested by hand over a long period:
   - typing in Apple Mail, WebKit and Spotlight
   - sleep and wake
