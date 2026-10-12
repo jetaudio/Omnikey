@@ -7,6 +7,7 @@
 //
 
 #import "OmnikeyManager.h"
+#import "OKUpdater.h"
 
 extern void OmnikeyInit(void);
 extern void OmnikeyFree(void);
@@ -178,51 +179,35 @@ void OmnikeyReEnableEventTap(void) {
 #pragma mark -AutoUpdate feature
 
 +(void)checkNewVersion:(NSWindow*)parent callbackFunc:(CheckNewVersionCallback) callback {
-    //load new version config
-    NSURLSession *aSession = [NSURLSession sessionWithConfiguration:[NSURLSessionConfiguration defaultSessionConfiguration]];
-    [[aSession dataTaskWithURL:[NSURL URLWithString:@"https://raw.githubusercontent.com/jetaudio/Omnikey/master/version.json"] completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-        if (((NSHTTPURLResponse *)response).statusCode == 200) {
-            if (data) {
-                if(NSClassFromString(@"NSJSONSerialization")) {
-                    NSError *error = nil;
-                    id object = [NSJSONSerialization
-                                 JSONObjectWithData:data
-                                 options:0
-                                 error:&error];
-                    
-                    if(error) {  }
-                    if([object isKindOfClass:[NSDictionary class]]) {
-                        NSDictionary *results = object;
-                        NSDictionary *ver = [results valueForKey:@"latestVersion"];
-                        NSString* versionCodeString = [ver valueForKey:@"versionCode"];
-                        int versionCode = (int)[versionCodeString integerValue];
-                        int currentVersionCode = (int)[((NSString*)[[NSBundle mainBundle] objectForInfoDictionaryKey: @"CFBundleVersion"]) integerValue];
-                        
-                        dispatch_async(dispatch_get_main_queue(), ^{
-                            if (callback != nil) {
-                                callback();
-                            }
-                            if (versionCode > currentVersionCode || callback != nil) {
-                                [self showUpdateMessage:parent needUpdating:versionCode > currentVersionCode newVersion:[ver valueForKey:@"versionName"]];
-                            }
-                        });
-                    }
-                    else {
-                        //oh my god
-                    }
-                }
-                else {
-                    //can not parse json
-                }
+    NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration ephemeralSessionConfiguration];
+    configuration.timeoutIntervalForRequest = 30;
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:configuration];
+    NSURL *url = [NSURL URLWithString:@"https://raw.githubusercontent.com/jetaudio/Omnikey/master/version.json"];
+    [[session dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *networkError) {
+        NSError *parseError = nil;
+        id object = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:&parseError] : nil;
+        NSDictionary *version = [object isKindOfClass:NSDictionary.class] ? object[@"latestVersion"] : nil;
+        BOOL valid = !networkError && !parseError && ((NSHTTPURLResponse *)response).statusCode == 200 &&
+            [version isKindOfClass:NSDictionary.class] && [version[@"versionCode"] respondsToSelector:@selector(integerValue)] &&
+            [version[@"versionName"] isKindOfClass:NSString.class];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (callback) callback();
+            if (!valid) {
+                if (callback) [self showMessage:parent message:@"Không kiểm tra được bản cập nhật" subMsg:@"Hãy kiểm tra kết nối mạng và thử lại."];
+                return;
             }
-        }
+            NSInteger current = [NSBundle.mainBundle.infoDictionary[@"CFBundleVersion"] integerValue];
+            BOOL newer = [version[@"versionCode"] integerValue] > current;
+            if (newer || callback) [self showUpdateMessage:parent needUpdating:newer newVersion:version[@"versionName"]];
+        });
+        [session finishTasksAndInvalidate];
     }] resume];
 }
 
 +(void)showUpdateMessage:(NSWindow*)parent needUpdating:(BOOL)needUpdating newVersion:(NSString*)versionString {
     NSAlert *alert = [[NSAlert alloc] init];
     [alert setMessageText:(needUpdating ? [NSString stringWithFormat:@"Omnikey Có phiên bản mới (%@), bạn có muốn cập nhật không?", versionString] : @"Bạn đang dùng phiên bản mới nhất!")];
-    [alert setInformativeText:(needUpdating ? @"Bấm 'Có' để cập nhật Omnikey." : @"")];
+    [alert setInformativeText:(needUpdating ? @"Bấm 'Có' để tải và cài bản mới. Omnikey sẽ tự mở lại sau khi cập nhật." : @"")];
     
     if (!needUpdating) {
         [alert addButtonWithTitle:@"OK"];
@@ -247,9 +232,7 @@ void OmnikeyReEnableEventTap(void) {
 }
 
 +(void)launchUpdateHelper {
-    // The app bundles no update helper: open the release page to download
-    // the new DMG instead of quitting.
-    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://github.com/jetaudio/Omnikey/releases/latest"]];
+    [OKUpdater start];
 }
 
 @end

@@ -28,6 +28,8 @@ jobs:
         run: bash scripts/test-rime.sh
       - name: macOS event regression tests
         run: bash scripts/test-macos-events.sh
+      - name: macOS updater regression tests
+        run: bash scripts/test-macos-updater.sh
       - name: Build and verify universal DMG
         run: bash scripts/build-macos-dmg.sh
       - name: Upload DMG and build information

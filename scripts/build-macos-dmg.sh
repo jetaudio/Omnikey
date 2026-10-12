@@ -32,6 +32,7 @@ xcodebuild \
 app_path="$build_dir/DerivedData/Build/Products/Release/Omnikey.app"
 test -d "$app_path/Contents/Resources/Base.lproj/Main.storyboardc"
 test -f "$app_path/Contents/Frameworks/librime.1.dylib"
+test -f "$app_path/Contents/Resources/update-install.sh"
 test -f "$app_path/Contents/Resources/Rime/build/pinyin_simp.table.bin"
 for arch in arm64 x86_64; do
   lipo "$app_path/Contents/MacOS/Omnikey" -verify_arch "$arch"

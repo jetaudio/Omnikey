@@ -15,6 +15,6 @@ rime="$PWD/Sources/Omnikey/macOS/ThirdParty/Rime"
 if [ -f "$rime/.stamp" ]; then export OMNIKEY_RIME="$rime"; fi
 "$test_dir/event-tests" 2>"$test_dir/stderr" || { cat "$test_dir/stderr"; exit 1; }
 xcrun clang -g -fobjc-arc -fobjc-weak -fsanitize=address,undefined \
-  -I Sources/Omnikey/macOS/ModernKey tests/mac_tap_tests.m \
+  -I Sources/Omnikey/macOS/ModernKey tests/mac_tap_tests.m Sources/Omnikey/macOS/ModernKey/OKUpdater.m \
   -framework Cocoa -o "$test_dir/tap-tests"
 "$test_dir/tap-tests"

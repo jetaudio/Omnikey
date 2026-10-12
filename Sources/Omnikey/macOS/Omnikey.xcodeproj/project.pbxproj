@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        A2F0E0A02F00000000000001 /* OKUpdater.m in Sources */ = {isa = PBXBuildFile; fileRef = A2F0E0A02F00000000000002; };
+        A2F0E0A02F00000000000003 /* update-install.sh in Resources */ = {isa = PBXBuildFile; fileRef = A2F0E0A02F00000000000004; };
 		23136D92231FBD49000764E6 /* ConvertToolViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 23136D91231FBD49000764E6 /* ConvertToolViewController.mm */; };
 		232DB1E421FAED290049A0B5 /* StatusHighlighted.png in Resources */ = {isa = PBXBuildFile; fileRef = 232DB1E021FAED280049A0B5 /* StatusHighlighted.png */; };
 		232DB1E521FAED290049A0B5 /* Status.png in Resources */ = {isa = PBXBuildFile; fileRef = 232DB1E121FAED280049A0B5 /* Status.png */; };
@@ -62,6 +64,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+        A2F0E0A02F00000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OKUpdater.m; sourceTree = "<group>"; };
+        A2F0E0A02F00000000000004 = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "update-install.sh"; sourceTree = "<group>"; };
+        A2F0E0A02F00000000000005 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OKUpdater.h; sourceTree = "<group>"; };
 		23136D90231FBD49000764E6 /* ConvertToolViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ConvertToolViewController.h; sourceTree = "<group>"; };
 		23136D91231FBD49000764E6 /* ConvertToolViewController.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ConvertToolViewController.mm; sourceTree = "<group>"; };
 		232DB1E021FAED280049A0B5 /* StatusHighlighted.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = StatusHighlighted.png; sourceTree = "<group>"; };
@@ -223,6 +228,9 @@
 				232EDA6321F1B33F0085D362 /* main.m */,
 				232EDA6521F1B33F0085D362 /* ModernKey.entitlements */,
 				2389467E21FDDC3F0030A13B /* OmnikeyManager.h */,
+                A2F0E0A02F00000000000002,
+                A2F0E0A02F00000000000004,
+                A2F0E0A02F00000000000005,
 				2389467C21FDDB920030A13B /* OmnikeyManager.m */,
 				23CA6D1522F0439100804D6E /* MyTextField.h */,
 				23CA6D1622F0439100804D6E /* MyTextField.m */,
@@ -409,6 +417,7 @@
 				238AF96922042E2500AEFA17 /* ThumbUp@2x.png in Resources */,
 				232EDA5E21F1B33F0085D362 /* Assets.xcassets in Resources */,
 				232EDA6121F1B33F0085D362 /* Main.storyboard in Resources */,
+                A2F0E0A02F00000000000003,
 				2383405D2320F8170020F857 /* StartConvert@2x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -444,6 +453,7 @@
 				23E2E49E2314FD3A006CCC3E /* SmartSwitchKey.cpp in Sources */,
 				23F512852336386200397988 /* MJAccessibilityUtils.m in Sources */,
 				2389467D21FDDB920030A13B /* OmnikeyManager.m in Sources */,
+                A2F0E0A02F00000000000001,
 				23E2E4A02314FD3A006CCC3E /* Vietnamese.cpp in Sources */,
 				2374A1302216720E005B0375 /* AboutViewController.m in Sources */,
 				23CA6D1722F0439100804D6E /* MyTextField.m in Sources */,
@@ -610,7 +620,7 @@
 				CODE_SIGN_IDENTITY = "Mac Developer";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 50;
+				CURRENT_PROJECT_VERSION = 51;
 				DEVELOPMENT_TEAM = 8S7348QV8Q;
 				HEADER_SEARCH_PATHS = "";
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -620,7 +630,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 2.0.6;
+				MARKETING_VERSION = 2.0.7;
 				OTHER_LDFLAGS = (
 					"-lc++\n-lc++",
 				);
@@ -637,7 +647,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 50;
+				CURRENT_PROJECT_VERSION = 51;
 				DEVELOPMENT_TEAM = 8S7348QV8Q;
 				HEADER_SEARCH_PATHS = "";
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -647,7 +657,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 2.0.6;
+				MARKETING_VERSION = 2.0.7;
 				OTHER_LDFLAGS = (
 					"-lc++\n-lc++",
 				);

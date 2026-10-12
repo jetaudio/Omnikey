@@ -8,6 +8,28 @@ The fork is based on upstream [tuyenvm/OpenKey](https://github.com/tuyenvm/OpenK
 identified by the source commit in their file name, for example
 `OpenKey-2.0.5-<commit>-universal.dmg`. The upstream history is kept below.
 
+## [2.0.7] - 2026-10-12 (macOS)
+
+### Added
+
+- macOS updater downloads the latest universal DMG after confirmation, verifies
+  SHA-256, bundle identity, build number, code signature and CPU architecture,
+  then installs and relaunches Omnikey. It restores the previous bundle if
+  replacement or relaunch fails and keeps a backup for manual recovery.
+- Updater validation and installation regression tests run in macOS CI.
+
+### Fixed
+
+- Manual update checks restore the check button and show an error when the
+  network request or version metadata fails.
+
+### Upgrade notes
+
+- Install this release manually once to obtain the updater. Future releases
+  must include the universal DMG and its matching `.dmg.sha256` asset.
+- macOS version is 2.0.7, build 51. Windows version metadata remains 2.1.1.
+- macOS builds are ad hoc signed and are not notarized.
+
 ## [Unreleased]
 
 ### Changed
