@@ -365,7 +365,10 @@ static NSImage *OKChineseStatusImage(BOOL highlighted, BOOL monochrome) {
         SMAppService *service = [SMAppService mainAppService];
         NSError *error = nil;
         BOOL success = YES;
-        if (val && service.status == SMAppServiceStatusNotRegistered) {
+        // An app that was never registered reports NotFound rather than
+        // NotRegistered, so register whenever the login item is not active yet.
+        if (val && (service.status == SMAppServiceStatusNotRegistered ||
+                    service.status == SMAppServiceStatusNotFound)) {
             success = [service registerAndReturnError:&error];
         } else if (!val && (service.status == SMAppServiceStatusEnabled ||
                             service.status == SMAppServiceStatusRequiresApproval)) {

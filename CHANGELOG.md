@@ -8,6 +8,19 @@ The fork is based on upstream [tuyenvm/OpenKey](https://github.com/tuyenvm/OpenK
 identified by the source commit in their file name, for example
 `OpenKey-2.0.5-<commit>-universal.dmg`. The upstream history is kept below.
 
+## [2.0.8] - 2026-10-13
+
+### Fixed
+
+- macOS: "Khởi động cùng macOS" now registers Omnikey as a login item. On
+  macOS 13 and later, an app that was never registered reports
+  `SMAppServiceStatusNotFound`, which the previous check skipped, so Omnikey
+  never started at login.
+
+### Upgrade notes
+
+- macOS-only release; build number is 52. Windows and Linux stay at 2.0.7.
+
 ## [2.0.7] - 2026-10-12
 
 ### Added
