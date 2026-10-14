@@ -10,11 +10,13 @@
 //   - Direct: text is committed as you type and corrected with
 //     delete_surrounding_text (or forwarded BackSpace keys when the app does not
 //     support surrounding text), like Omnikey does on macOS and Windows.
+//  In 中 mode keys go to Rime instead, and IBus shows its preedit and candidates.
 //
 
 #include "OmnikeyEngine.h"
 #include "Config.h"
 #include "Engine.h"
+#include "LinuxRime.h"
 #include "VirtualKeyboard.h"
 
 #include <string>
@@ -44,10 +46,16 @@ enum KeyResult {
 };
 #define MODIFIER_MASK (IBUS_CONTROL_MASK | IBUS_MOD1_MASK | IBUS_SUPER_MASK | IBUS_MOD4_MASK | IBUS_HYPER_MASK | IBUS_META_MASK)
 
+enum InputMode { ModeVietnamese = 0, ModeEnglish, ModeChinese, ModeCount };
+static const char* const MODE_KEYS[ModeCount] = {"InputMode.Vietnamese", "InputMode.English", "InputMode.Chinese"};
+static const char* const MODE_LABELS[ModeCount] = {"Tiếng Việt", "English", "中文 (Pinyin)"};
+static const char* const MODE_SYMBOLS[ModeCount] = {"V", "E", "中"};
+
 struct OmnikeyEngine {
     IBusEngine parent;
     IBusPropList* props;
-    IBusProperty* modeProp;
+    IBusProperty* modeProp;            // menu; GNOME shows its symbol in the top bar
+    IBusProperty* modeItems[ModeCount]; // owned by modeProp
     // Preedit mode: the current word, one entry per engine character
     // (an entry holds two code points for compound Unicode and VNI Windows).
     std::vector<std::u32string>* word;
@@ -87,6 +95,10 @@ static vKeyHookState* pData = NULL;
 static GList* engines = NULL;
 static GFileMonitor* configMonitor = NULL;
 static int loadedCodeTable = -1;
+// Chinese input: one Rime session for all input contexts, started in the background.
+static LinuxRime* rime = NULL;
+static bool rimeStarting = false;
+static std::string rimeError;
 
 /*------------------------------------------------------------------------------*/
 // Key helpers
@@ -344,36 +356,160 @@ static void cancelPending(OmnikeyEngine* self) {
     self->queue->clear();
 }
 
+/*------------------------------------------------------------------------------*/
+// Chinese mode (中)
+
+static void showComposition(OmnikeyEngine* self) {
+    IBusEngine* engine = (IBusEngine*)self;
+    ChineseComposition composition = rime->composition();
+    if (composition.preedit.empty()) {
+        ibus_engine_hide_preedit_text(engine);
+    } else {
+        IBusText* text = ibus_text_new_from_string(composition.preedit.c_str());
+        ibus_text_append_attribute(text, IBUS_ATTR_TYPE_UNDERLINE, IBUS_ATTR_UNDERLINE_SINGLE, 0, (gint)ibus_text_get_length(text));
+        // Unlike a Vietnamese word, unfinished Pinyin is dropped when the app resets.
+        ibus_engine_update_preedit_text(engine, text, (guint)composition.cursor, TRUE);
+    }
+    if (composition.candidates.empty()) {
+        ibus_engine_hide_lookup_table(engine);
+        return;
+    }
+    // Rime pages the candidates itself; the table holds the current page.
+    IBusLookupTable* table = ibus_lookup_table_new((guint)composition.candidates.size(), 0, TRUE, FALSE);
+    for (size_t i = 0; i < composition.candidates.size(); i++) {
+        std::string candidate = composition.candidates[i];
+        if (!composition.comments[i].empty()) candidate += " " + composition.comments[i];
+        ibus_lookup_table_append_candidate(table, ibus_text_new_from_string(candidate.c_str()));
+    }
+    ibus_lookup_table_set_cursor_pos(table, (guint)MAX(composition.highlighted, 0));
+    ibus_engine_update_lookup_table(engine, table, TRUE);
+}
+
+static void commitChinese(OmnikeyEngine* self) {
+    std::string commit = rime->takeCommit();
+    if (!commit.empty()) ibus_engine_commit_text((IBusEngine*)self, ibus_text_new_from_string(commit.c_str()));
+}
+
+static gboolean processChinese(OmnikeyEngine* self, guint keyval, guint state) {
+    if (!rime) return FALSE; // still loading or unavailable: type Latin
+    int keysym = 0, mask = 0;
+    if (!LinuxRime::keyFor(keyval, state, rime->composing(), keysym, mask)) return FALSE;
+    gboolean handled = rime->process(keysym, mask);
+    commitChinese(self);
+    showComposition(self);
+    return handled;
+}
+
+// A key Rime handles the same way as the matching button in the candidate window.
+static void processChineseKey(OmnikeyEngine* self, int keysym) {
+    if (!vChineseMode || !rime) return;
+    rime->process(keysym, 0);
+    commitChinese(self);
+    showComposition(self);
+}
+
+static void clearChinese(OmnikeyEngine* self) {
+    if (rime) rime->clear();
+    ibus_engine_hide_lookup_table((IBusEngine*)self);
+}
+
+static void updateAllModeProperties();
+
+struct RimeStart {
+    LinuxRime* rime;
+    bool ok;
+};
+
+static gboolean onRimeStarted(gpointer data) {
+    RimeStart* start = (RimeStart*)data;
+    rimeStarting = false;
+    if (start->ok) {
+        rime = start->rime;
+    } else {
+        rimeError = start->rime->error();
+        g_warning("Omnikey: Chinese input is unavailable: %s", rimeError.c_str());
+        delete start->rime;
+    }
+    delete start;
+    updateAllModeProperties();
+    return G_SOURCE_REMOVE;
+}
+
+static gpointer startRime(gpointer) {
+    RimeStart* start = new RimeStart{new LinuxRime(), false};
+    gchar* user = g_build_filename(g_get_user_data_dir(), "omnikey", "rime", NULL);
+    start->ok = start->rime->initialize(LinuxRime::kSharedDataDir, user);
+    g_free(user);
+    g_idle_add(onRimeStarted, start);
+    return NULL;
+}
+
+// Rime deploys its data on first use, which can take a while.
+static void startChinese() {
+    if (rime || rimeStarting || !rimeError.empty()) return;
+    rimeStarting = true;
+    g_thread_unref(g_thread_new("omnikey-rime", startRime, NULL));
+}
+
 static void resetWord(OmnikeyEngine* self) {
     self->word->clear();
     self->sentLengths->clear();
     self->recent->clear();
     ibus_engine_hide_preedit_text((IBusEngine*)self);
+    clearChinese(self);
     hardReset();
 }
 
 /*------------------------------------------------------------------------------*/
 // Language switching and properties
 
+static int currentMode() {
+    return vChineseMode ? ModeChinese : (vLanguage ? ModeVietnamese : ModeEnglish);
+}
+
 static void updateModeProperty(OmnikeyEngine* self) {
-    IBusText* label = ibus_text_new_from_static_string(vLanguage ? "Tiếng Việt" : "English");
-    IBusText* symbol = ibus_text_new_from_static_string(vLanguage ? "V" : "E");
-    ibus_property_set_label(self->modeProp, label);
-    ibus_property_set_symbol(self->modeProp, symbol);
+    int mode = currentMode();
+    ibus_property_set_label(self->modeProp, ibus_text_new_from_static_string(MODE_LABELS[mode]));
+    ibus_property_set_symbol(self->modeProp, ibus_text_new_from_static_string(MODE_SYMBOLS[mode]));
+    std::string tooltip = "Chuyển chế độ gõ";
+    if (mode == ModeChinese && rimeStarting) tooltip = "Đang tải bộ gõ Pinyin…";
+    else if (mode == ModeChinese && !rime) tooltip = "Chưa gõ được tiếng Trung: " + rimeError;
+    ibus_property_set_tooltip(self->modeProp, ibus_text_new_from_string(tooltip.c_str()));
+    for (int i = 0; i < ModeCount; i++) {
+        ibus_property_set_state(self->modeItems[i], i == mode ? PROP_STATE_CHECKED : PROP_STATE_UNCHECKED);
+        ibus_engine_update_property((IBusEngine*)self, self->modeItems[i]);
+    }
     ibus_engine_update_property((IBusEngine*)self, self->modeProp);
 }
 
-static void toggleLanguage(OmnikeyEngine* self) {
-    flushWord(self);
-    resetWord(self);
-    vLanguage = vLanguage ? 0 : 1;
-    OmnikeyConfig::save();
+static void updateAllModeProperties() {
     for (GList* it = engines; it; it = it->next) updateModeProperty((OmnikeyEngine*)it->data);
+}
+
+static void setMode(OmnikeyEngine* self, int mode) {
+    if (mode != currentMode()) {
+        flushWord(self);
+        resetWord(self);
+        vChineseMode = mode == ModeChinese ? 1 : 0;
+        vLanguage = mode == ModeVietnamese ? 1 : 0;
+        OmnikeyConfig::save();
+    }
+    if (vChineseMode) {
+        if (!rime && !rimeStarting) rimeError.clear(); // try again, the data may be installed now
+        startChinese();
+    }
+    updateAllModeProperties();
+}
+
+// The switch key cycles V -> E -> 中 -> V, as on macOS and Windows.
+static void cycleMode(OmnikeyEngine* self) {
+    int mode = currentMode();
+    setMode(self, mode == ModeVietnamese ? ModeEnglish : (mode == ModeEnglish ? ModeChinese : ModeVietnamese));
 }
 
 static void onModifierTap(OmnikeyEngine* self, guint mask) {
     if (mask == (IBUS_CONTROL_MASK | IBUS_SHIFT_MASK) && vSwitchKey == SwitchCtrlShift) {
-        toggleLanguage(self);
+        cycleMode(self);
     } else if (mask == IBUS_CONTROL_MASK && vTempOffSpelling && vLanguage) {
         vTempOffSpellChecking();
     } else if (mask == IBUS_MOD1_MASK && vTempOffOmnikey && vLanguage) {
@@ -493,10 +629,11 @@ static int processDirect(OmnikeyEngine* self, Uint16 key, guint keyval, guint st
 // Handles a key press that is not a bare modifier.
 static int handleKeyPress(OmnikeyEngine* self, guint keyval, guint keycode, guint state) {
     if (isSwitchHotkey(keyval, state)) {
-        toggleLanguage(self);
+        cycleMode(self);
         return KeyConsumed;
     }
 
+    if (vChineseMode) return processChinese(self, keyval, state) ? KeyConsumed : KeyPass;
     if (!vLanguage) return KeyPass;
 
     Uint16 key = (Uint16)(keycode + 8); // evdev -> X11 key codes used by the engine
@@ -666,10 +803,37 @@ static void omnikey_engine_enable(IBusEngine* engine) {
 static void omnikey_engine_property_activate(IBusEngine* engine, const gchar* name, guint state) {
     OmnikeyEngine* self = (OmnikeyEngine*)engine;
     if (g_strcmp0(name, "InputMode") == 0) {
-        toggleLanguage(self);
+        cycleMode(self);
     } else if (g_strcmp0(name, "Setup") == 0) {
         g_spawn_command_line_async(OMNIKEY_SETUP_PATH, NULL);
+    } else {
+        for (int i = 0; i < ModeCount; i++) {
+            if (g_strcmp0(name, MODE_KEYS[i]) == 0 && state == PROP_STATE_CHECKED) setMode(self, i);
+        }
     }
+}
+
+static void omnikey_engine_candidate_clicked(IBusEngine* engine, guint index, guint button, guint state) {
+    OmnikeyEngine* self = (OmnikeyEngine*)engine;
+    if (!vChineseMode || !rime) return;
+    if (rime->select(index)) commitChinese(self);
+    showComposition(self);
+}
+
+static void omnikey_engine_page_up(IBusEngine* engine) {
+    processChineseKey((OmnikeyEngine*)engine, IBUS_KEY_Page_Up);
+}
+
+static void omnikey_engine_page_down(IBusEngine* engine) {
+    processChineseKey((OmnikeyEngine*)engine, IBUS_KEY_Page_Down);
+}
+
+static void omnikey_engine_cursor_up(IBusEngine* engine) {
+    processChineseKey((OmnikeyEngine*)engine, IBUS_KEY_Up);
+}
+
+static void omnikey_engine_cursor_down(IBusEngine* engine) {
+    processChineseKey((OmnikeyEngine*)engine, IBUS_KEY_Down);
 }
 
 static void omnikey_engine_init(OmnikeyEngine* self) {
@@ -690,11 +854,17 @@ static void omnikey_engine_init(OmnikeyEngine* self) {
 
     self->props = ibus_prop_list_new();
     g_object_ref_sink(self->props);
-    self->modeProp = ibus_property_new("InputMode", PROP_TYPE_NORMAL,
-        ibus_text_new_from_static_string("Tiếng Việt"), NULL,
-        ibus_text_new_from_static_string("Chuyển Việt / Anh"), TRUE, TRUE, PROP_STATE_UNCHECKED, NULL);
+    IBusPropList* modes = ibus_prop_list_new();
+    for (int i = 0; i < ModeCount; i++) {
+        self->modeItems[i] = ibus_property_new(MODE_KEYS[i], PROP_TYPE_RADIO,
+            ibus_text_new_from_static_string(MODE_LABELS[i]), NULL, NULL, TRUE, TRUE, PROP_STATE_UNCHECKED, NULL);
+        ibus_prop_list_append(modes, self->modeItems[i]);
+    }
+    self->modeProp = ibus_property_new("InputMode", PROP_TYPE_MENU,
+        ibus_text_new_from_static_string(MODE_LABELS[ModeVietnamese]), NULL,
+        ibus_text_new_from_static_string("Chuyển chế độ gõ"), TRUE, TRUE, PROP_STATE_UNCHECKED, modes);
     g_object_ref_sink(self->modeProp);
-    ibus_property_set_symbol(self->modeProp, ibus_text_new_from_static_string("V"));
+    ibus_property_set_symbol(self->modeProp, ibus_text_new_from_static_string(MODE_SYMBOLS[ModeVietnamese]));
     ibus_prop_list_append(self->props, self->modeProp);
     ibus_prop_list_append(self->props, ibus_property_new("Setup", PROP_TYPE_NORMAL,
         ibus_text_new_from_static_string("Cài đặt Omnikey…"), "preferences-system",
@@ -734,6 +904,11 @@ static void omnikey_engine_class_init(OmnikeyEngineClass* klass) {
     engineClass->enable = omnikey_engine_enable;
     engineClass->set_surrounding_text = omnikey_engine_set_surrounding_text;
     engineClass->property_activate = omnikey_engine_property_activate;
+    engineClass->candidate_clicked = omnikey_engine_candidate_clicked;
+    engineClass->page_up = omnikey_engine_page_up;
+    engineClass->page_down = omnikey_engine_page_down;
+    engineClass->cursor_up = omnikey_engine_cursor_up;
+    engineClass->cursor_down = omnikey_engine_cursor_down;
 }
 
 /*------------------------------------------------------------------------------*/
@@ -745,6 +920,7 @@ static void reloadConfig() {
         loadedCodeTable = vCodeTable;
         onTableCodeChange();
     }
+    if (vChineseMode) startChinese();
     for (GList* it = engines; it; it = it->next) {
         resetWord((OmnikeyEngine*)it->data);
         updateModeProperty((OmnikeyEngine*)it->data);
@@ -768,6 +944,7 @@ void omnikey_engine_global_init(void) {
     OmnikeyConfig::load();
     loadedCodeTable = vCodeTable;
     OmnikeyConfig::loadMacros();
+    if (vChineseMode) startChinese();
 
     g_mkdir_with_parents(OmnikeyConfig::configDir().c_str(), 0700);
     GFile* dir = g_file_new_for_path(OmnikeyConfig::configDir().c_str());

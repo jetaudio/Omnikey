@@ -27,6 +27,7 @@ enum OmnikeySwitchKey {
 
 extern int vOutputMode;
 extern int vSwitchKey;
+extern int vChineseMode; // 1 while 中 (Pinyin through Rime) is the input mode; vLanguage is then 0
 
 namespace OmnikeyConfig {
     std::string configDir();

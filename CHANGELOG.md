@@ -8,6 +8,15 @@ The fork is based on upstream [tuyenvm/OpenKey](https://github.com/tuyenvm/OpenK
 identified by the source commit in their file name, for example
 `OpenKey-2.0.5-<commit>-universal.dmg`. The upstream history is kept below.
 
+## [Unreleased]
+
+### Added
+
+- Linux: Chinese input (中) through librime with the `pinyin_simp` schema from
+  Ubuntu's rime-data packages, as on macOS and Windows. The switch key cycles
+  Vietnamese → English → 中, the top-bar indicator has a menu for the three
+  modes, and IBus shows the candidates. The settings app selects the mode.
+
 ## [2.0.9] - 2026-10-14
 
 ### Fixed

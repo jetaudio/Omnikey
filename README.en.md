@@ -60,8 +60,8 @@ Changes compared with upstream `tuyenvm/OpenKey` at `89c2fd3`. See [CHANGELOG.md
 
 | Area | Change |
 | --- | --- |
-| **Chinese input (macOS and Windows)** | A third input mode, **中**, for Simplified Chinese Pinyin. It uses [librime](https://github.com/rime/librime) with the official `pinyin_simp` schema and a compact candidate panel. Phrases are learned as you type; **Shift+Delete** forgets a learned phrase (macOS also supports **Control+K**). The mode shortcut cycles **Tiếng Việt → English → 中**. |
-| **Linux port (Ubuntu, GNOME, Wayland and X11)** | An IBus engine built on the same engine as macOS and Windows. **UniKey-style typing without underlines:** a `uinput` virtual keyboard sends real BackSpace keys, so typing works in terminals too. Apps that support it are edited in place. An underlined-word mode is still available. It handles autocomplete suggestions in browser address bars and notices when you click elsewhere. A GTK 4/libadwaita settings app follows the latest Ubuntu design and applies changes immediately. The Vietnamese/English switch is Ctrl+Shift (default), Ctrl+Space or Alt+Z, and the top bar shows **V/E**. |
+| **Chinese input (macOS, Windows and Linux)** | A third input mode, **中**, for Simplified Chinese Pinyin. It uses [librime](https://github.com/rime/librime) with the official `pinyin_simp` schema and a compact candidate panel; on Linux it uses Ubuntu's librime and Rime data packages and the IBus candidate window. Phrases are learned as you type; **Shift+Delete** forgets a learned phrase (macOS also supports **Control+K**). The mode shortcut cycles **Tiếng Việt → English → 中**. |
+| **Linux port (Ubuntu, GNOME, Wayland and X11)** | An IBus engine built on the same engine as macOS and Windows. **UniKey-style typing without underlines:** a `uinput` virtual keyboard sends real BackSpace keys, so typing works in terminals too. Apps that support it are edited in place. An underlined-word mode is still available. It handles autocomplete suggestions in browser address bars and notices when you click elsewhere. A GTK 4/libadwaita settings app follows the latest Ubuntu design and applies changes immediately. The mode switch is Ctrl+Shift (default), Ctrl+Space or Alt+Z, and the top bar shows **V/E/中**. |
 | **macOS interface** | The preferences, macro, convert-tool and About windows are redesigned in the macOS 26 (Tahoe) settings style. They use toolbar tabs, rounded groups, switches, inline pop-ups and a segmented modifier-key control. |
 | **Globe/Fn shortcut (macOS)** | Fn (🌐) can be used alone or with other modifiers to switch input modes. |
 | **Simple Telex 2 (Windows)** | Simple Telex 1 and 2 are available in the Windows settings and tray menu. Previously, the engine supported Simple Telex 2 but Windows did not offer it. |
@@ -142,7 +142,7 @@ Inherited from OpenKey and available on both platforms unless noted:
 
 ## Usage
 
-- **Switch input mode:** the configured shortcut cycles **Vietnamese → English → Chinese → Vietnamese** on macOS and Windows (Windows defaults to **Alt+Z**). Linux has only **V ↔ E** and defaults to **Ctrl+Shift**. You can also choose a mode from the menu bar or tray icon.
+- **Switch input mode:** the configured shortcut cycles **Vietnamese → English → Chinese → Vietnamese** (Windows defaults to **Alt+Z**, Linux to **Ctrl+Shift**). You can also choose a mode from the menu bar, the tray icon or the GNOME top bar.
 - **Use Globe (🌐) as the shortcut on macOS:** in **System Settings → Keyboard**, set *Press 🌐 key to* **Do Nothing**.
 - **Chinese mode:**
   - Type Pinyin.
@@ -168,7 +168,8 @@ On Windows, build `Sources/Omnikey/win32/Omnikey/Omnikey.sln` with Visual Studio
 On Ubuntu, the script runs the engine tests, builds the engine and settings app, and writes a `.deb` to `dist/`:
 
 ```bash
-sudo apt install build-essential cmake pkg-config libibus-1.0-dev libadwaita-1-dev
+sudo apt install build-essential cmake pkg-config libibus-1.0-dev libadwaita-1-dev \
+  librime-dev rime-data-pinyin-simp rime-prelude rime-essay
 bash scripts/build-linux.sh
 ```
 
@@ -209,7 +210,7 @@ docs/images/         Screenshots
   - Windows lock and unlock
 
   The automated tests mock these system interactions.
-- **Chinese input:** available on macOS and Windows only, and only for Simplified Chinese Pinyin.
+- **Chinese input:** Simplified Chinese Pinyin only. On Linux it needs the `rime-data-pinyin-simp`, `rime-prelude` and `rime-essay` packages (the `.deb` pulls them in), and Rime takes a few seconds to prepare its data the first time 中 is selected.
 - **Linux:**
   - The port is new. It has been tested on Ubuntu 26.04 with GNOME apps, Firefox, LibreOffice and Terminal.
   - Edit-in-place mode needs access to `/dev/uinput`. The package installs a udev rule that gives the logged-in user this access, so any program running as that user can also inject key presses.

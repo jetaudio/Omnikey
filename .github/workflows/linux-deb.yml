@@ -10,13 +10,17 @@ on:
       - 'scripts/build-linux.sh'
       - '.github/workflows/linux-deb.yml'
       - 'tests/engine_regression.cpp'
+      - 'tests/linux_rime_tests.cpp'
       - 'tests/test_config.h'
+      - 'Sources/Omnikey/macOS/Rime/default.custom.yaml'
   pull_request:
     paths:
       - 'Sources/Omnikey/engine/**'
       - 'Sources/Omnikey/linux/**'
       - 'scripts/build-linux.sh'
       - '.github/workflows/linux-deb.yml'
+      - 'tests/linux_rime_tests.cpp'
+      - 'Sources/Omnikey/macOS/Rime/default.custom.yaml'
 
 permissions:
   contents: read
@@ -31,13 +35,16 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config libibus-1.0-dev libadwaita-1-dev
-      - name: Engine tests, build and package
+          sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config libibus-1.0-dev libadwaita-1-dev \
+            librime-dev rime-data-pinyin-simp rime-prelude rime-essay
+      - name: Engine and Chinese input tests, build and package
         run: JOBS=4 bash scripts/build-linux.sh
       - name: Verify package
         run: |
           deb=$(ls dist/ibus-omnikey_*_amd64.deb)
           dpkg-deb --info "$deb"
+          dpkg-deb --field "$deb" Depends | tee /dev/stderr | grep -q 'librime1' || { echo "missing librime dependency"; exit 1; }
+          dpkg-deb --field "$deb" Depends | grep -q 'rime-data-pinyin-simp' || { echo "missing Pinyin data dependency"; exit 1; }
           contents=$(dpkg-deb --contents "$deb")
           echo "$contents"
           for path in usr/libexec/ibus-engine-omnikey usr/bin/omnikey-setup usr/share/ibus/component/omnikey.xml \

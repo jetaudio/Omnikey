@@ -11,6 +11,7 @@ include(GNUInstallDirs)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(IBUS REQUIRED IMPORTED_TARGET ibus-1.0)
 pkg_check_modules(ADWAITA REQUIRED IMPORTED_TARGET libadwaita-1>=1.5)
+pkg_check_modules(RIME REQUIRED IMPORTED_TARGET rime>=1.8)
 
 set(ENGINE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
 set(OMNIKEY_ENGINE_PATH ${CMAKE_INSTALL_FULL_LIBEXECDIR}/ibus-engine-omnikey)
@@ -30,9 +31,20 @@ target_compile_definitions(omnikey-core PUBLIC LINUX OMNIKEY_VERSION="${PROJECT_
 target_compile_options(omnikey-core PRIVATE -Wno-deprecated-declarations)
 target_link_libraries(omnikey-core PUBLIC PkgConfig::IBUS)
 
+# Chinese input: Omnikey's Rime settings are the same on every platform.
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/../macOS/Rime/default.custom.yaml OMNIKEY_RIME_CUSTOM)
+configure_file(src/ibus/RimeCustom.h.in ${CMAKE_CURRENT_BINARY_DIR}/RimeCustom.h @ONLY)
+add_library(omnikey-rime STATIC src/ibus/LinuxRime.cpp)
+target_include_directories(omnikey-rime PUBLIC src/ibus PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(omnikey-rime PUBLIC PkgConfig::IBUS PkgConfig::RIME)
+
 add_executable(ibus-engine-omnikey src/ibus/main.cpp src/ibus/OmnikeyEngine.cpp src/ibus/VirtualKeyboard.cpp)
 target_compile_definitions(ibus-engine-omnikey PRIVATE OMNIKEY_SETUP_PATH="${OMNIKEY_SETUP_PATH}")
-target_link_libraries(ibus-engine-omnikey PRIVATE omnikey-core PkgConfig::IBUS)
+target_link_libraries(ibus-engine-omnikey PRIVATE omnikey-core omnikey-rime PkgConfig::IBUS)
+
+# Run by scripts/build-linux.sh against the installed rime-data packages.
+add_executable(omnikey-rime-tests ${CMAKE_CURRENT_SOURCE_DIR}/../../../tests/linux_rime_tests.cpp)
+target_link_libraries(omnikey-rime-tests PRIVATE omnikey-rime)
 
 add_executable(omnikey-setup src/setup/main.cpp)
 target_link_libraries(omnikey-setup PRIVATE omnikey-core PkgConfig::ADWAITA)
@@ -51,10 +63,11 @@ install(FILES data/70-omnikey-uinput.rules DESTINATION lib/udev/rules.d)
 set(CPACK_GENERATOR DEB)
 set(CPACK_PACKAGE_NAME ibus-omnikey)
 set(CPACK_PACKAGE_CONTACT "jetaudio <jetaudio.media@gmail.com>")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Omnikey Vietnamese input method for IBus")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Omnikey Vietnamese and Chinese Pinyin input method for IBus")
 set(CPACK_DEBIAN_PACKAGE_SECTION utils)
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "ibus")
+# librime comes from shlibdeps; the Pinyin schema and its shared data are packaged separately.
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "ibus, rime-data-pinyin-simp, rime-prelude, rime-essay")
 # The package was called ibus-openkey before the rename.
 set(CPACK_DEBIAN_PACKAGE_CONFLICTS "ibus-openkey")
 set(CPACK_DEBIAN_PACKAGE_REPLACES "ibus-openkey")
