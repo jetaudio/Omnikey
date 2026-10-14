@@ -9,9 +9,9 @@
 
 ## Vì sao có fork này
 
-Mình đã quá mệt mỏi với các bộ gõ tiếng Việt trên Ubuntu và macOS: chỗ thì gạch chân, chỗ thì mất chữ, sang terminal lại gõ sai, mỗi máy phải học một bộ gõ khác nhau. Trong khi đó mình lại quá nghiền UniKey trên Windows: gõ đâu ra đó, không gạch chân, không phải nghĩ.
+Các bộ gõ tiếng Việt trên Ubuntu và macOS vẫn còn nhiều điểm gây khó chịu: chỗ thì gạch chân, chỗ thì mất chữ, sang terminal lại gõ sai, mỗi máy lại phải làm quen một bộ gõ khác. Trong khi đó, UniKey trên Windows gõ đâu ra đó, không gạch chân, không phải nghĩ.
 
-Vì vậy mình fork OpenKey và cải tiến nó, để **một bộ gõ, một cách gõ, dùng được trên mọi nền tảng**, với cảm giác gõ giống UniKey nhất có thể.
+Omnikey được fork từ OpenKey và cải tiến để có **một bộ gõ, một cách gõ, dùng được trên mọi nền tảng**, với cảm giác gõ giống UniKey nhất có thể.
 
 ## Nguồn gốc
 
@@ -57,7 +57,7 @@ Các bản sửa này được tích hợp từ 8 PR còn mở ở repo gốc: #
 
 - **Event tap (macOS):** tự bật lại khi macOS tắt nó do timeout, có watchdog 0,5 giây.
 - **Gửi phím (macOS):** mỗi lần thay chữ tạo cặp sự kiện Backspace mới, và chuỗi dài được gửi theo từng khối UTF-16 trọn vẹn.
-- **Spotlight:** chỉ thay chữ tại chỗ khi ô Spotlight thật sự đang nhận phím.
+- **Spotlight:** khi ô Spotlight đang nhận phím, chữ được thay bằng cách chọn lùi rồi gõ đè, vì Spotlight trên macOS 26 bỏ qua phím Backspace giả lập. Cửa sổ Spotlight đang ẩn hoặc mờ dần không được tính.
 - **Khởi động cùng máy:** dùng `SMAppService` trên macOS 13 trở lên.
 - **Ứng dụng lập trình:** Terminal và các ứng dụng tương tự mặc định gõ tiếng Anh, nhưng vẫn giữ lựa chọn và bảng mã người dùng đã lưu.
 - **Windows:** tự cài lại hook bàn phím khi mở khóa máy, và sửa lỗi tràn bộ đệm cùng ký tự thừa khi dán qua clipboard.

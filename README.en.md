@@ -11,9 +11,9 @@
 
 ## Why this fork exists
 
-I got tired of the Vietnamese input methods on Ubuntu and macOS: underlined words in some, missing characters in others, broken typing in the terminal, and a different input method to learn on every machine. Meanwhile I'm hooked on UniKey on Windows. It just works, with no underline and nothing to think about.
+Vietnamese input methods on Ubuntu and macOS are still frustrating: underlined words in some, missing characters in others, broken typing in the terminal, and a different input method to learn on every machine. UniKey on Windows, by contrast, just works, with no underline and nothing to think about.
 
-So I forked OpenKey and improved it, to get **one input method that types the same way on every platform**, feeling as close to UniKey as possible.
+Omnikey forks and improves OpenKey to provide **one input method that types the same way on every platform**, feeling as close to UniKey as possible.
 
 ## Origin
 
@@ -71,7 +71,7 @@ Changes compared with upstream `tuyenvm/OpenKey` at `89c2fd3`. See [CHANGELOG.md
 These fixes were adapted from eight open upstream pull requests: #287, #289, #297, #317, #324, #329, #332 and #333. Each one was reviewed, partly rewritten and covered by tests. [PR_REVIEW.md](PR_REVIEW.md) records every decision.
 
 - **macOS event tap:** re-enabled after macOS disables it on timeout, with a 0.5 s watchdog. Each replacement allocates fresh backspace events. Long strings are sent in complete UTF-16 chunks.
-- **Spotlight:** text is replaced in place only when the Spotlight field really has focus. Hidden or fading windows no longer count, and focus queries time out after 20 ms.
+- **Spotlight:** while the Spotlight field has focus, text is replaced by selecting backwards and typing over it, because Spotlight on macOS 26 ignores synthetic Backspace. Hidden or fading windows no longer count, and focus queries time out after 20 ms.
 - **Login items:** `SMAppService` is used on macOS 13 and later.
 - **Developer apps:** apps such as Terminal start in English, but your saved choices and code table are kept.
 - **Windows lock and unlock:** keyboard hooks are restored on `WTS_SESSION_UNLOCK`. If installing a new hook fails, the old hook is kept.
