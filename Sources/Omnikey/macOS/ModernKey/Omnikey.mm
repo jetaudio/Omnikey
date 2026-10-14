@@ -184,6 +184,8 @@ extern "C" {
         return false;
     }
 
+    pid_t _spotlightFocusedPID = 0; // Spotlight whose field last answered as focused
+
     BOOL isSpotlightVisible() {
         NSArray *windows = CFBridgingRelease(CGWindowListCopyWindowInfo(
             kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID));
@@ -197,20 +199,28 @@ extern "C" {
 
             // A fading panel can still have alpha > 0 and a floating layer.
             // Selection replacement is safe only when Spotlight receives this key.
-            if (_eventTargetPID > 0) return _eventTargetPID == owner.intValue;
-            AXUIElementRef systemWide = AXUIElementCreateSystemWide();
-            if (systemWide == NULL) return NO;
-            AXUIElementSetMessagingTimeout(systemWide, 0.02f);
+            if (_eventTargetPID == owner.intValue) return YES;
+            // At the session tap the target PID names the frontmost app, not the
+            // Spotlight panel, and the system-wide focus query fails there. Ask
+            // Spotlight itself: it has a focused element only while its field is
+            // open, and none once the panel closes.
+            AXUIElementRef spotlight = AXUIElementCreateApplication(owner.intValue);
+            if (spotlight == NULL) return NO;
+            AXUIElementSetMessagingTimeout(spotlight, 0.02f);
             CFTypeRef focused = NULL;
-            AXError result = AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute, &focused);
-            pid_t focusedPID = 0;
+            AXError result = AXUIElementCopyAttributeValue(spotlight, kAXFocusedUIElementAttribute, &focused);
             if (result == kAXErrorSuccess && focused != NULL) {
-                AXUIElementGetPid((AXUIElementRef)focused, &focusedPID);
+                _spotlightFocusedPID = owner.intValue;
+            } else if (result == kAXErrorSuccess || result == kAXErrorNoValue) {
+                _spotlightFocusedPID = 0;
             }
+            // Spotlight can miss the timeout while it computes results; keep
+            // the last definite answer for this panel instead of backspacing.
             if (focused != NULL) CFRelease(focused);
-            CFRelease(systemWide);
-            return focusedPID == owner.intValue;
+            CFRelease(spotlight);
+            return _spotlightFocusedPID == owner.intValue;
         }
+        _spotlightFocusedPID = 0;
         return NO;
     }
 

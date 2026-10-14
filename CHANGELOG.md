@@ -8,6 +8,21 @@ The fork is based on upstream [tuyenvm/OpenKey](https://github.com/tuyenvm/OpenK
 identified by the source commit in their file name, for example
 `OpenKey-2.0.5-<commit>-universal.dmg`. The upstream history is kept below.
 
+## [2.0.9] - 2026-10-14
+
+### Fixed
+
+- macOS: Vietnamese typing in Spotlight on macOS 26 no longer leaves the old
+  letter behind (`eex` gave "eễ" or "eêễ", `ddax` gave "đaã"). Spotlight
+  ignores synthetic Backspace, and Omnikey did not recognize Spotlight because
+  the event tap reports the frontmost app as the key's target. Omnikey now asks
+  Spotlight itself whether its field is focused and replaces text by selection.
+  While Spotlight is busy searching, the last answer for the open panel is kept.
+
+### Upgrade notes
+
+- macOS-only release; build number is 53. Windows and Linux stay at 2.0.7.
+
 ## [2.0.8] - 2026-10-13
 
 ### Fixed

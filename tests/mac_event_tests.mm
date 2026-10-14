@@ -9,7 +9,7 @@
 int vSendKeyStepByStep=0, vFixChromiumBrowser=0, vPerformLayoutCompat=0;
 static int recoveryCalls=0, backspaceCreates=0, assertions=0, switches=0;
 static NSArray *testWindows=@[];
-static pid_t testFocusedPID=0;
+static pid_t testQueriedPID=0;
 static AXError testFocusError=kAXErrorSuccess;
 static NSDictionary *testInputSource;
 static CFTypeRef borrowedLanguage=NULL;
@@ -20,7 +20,6 @@ static void captureEvent(CGEventTapProxy, CGEventRef);
 static CGEventRef createKeyboardEvent(CGEventSourceRef, CGKeyCode, bool);
 static CFArrayRef windowList(CGWindowListOption, CGWindowID);
 static AXError focusedElement(AXUIElementRef, CFStringRef, CFTypeRef *);
-static AXError getFocusedPID(AXUIElementRef, pid_t *);
 static TISInputSourceRef copyInputSource(void);
 static void *inputSourceProperty(TISInputSourceRef, CFStringRef);
 static void releaseObject(CFTypeRef);
@@ -30,7 +29,6 @@ static void releaseObject(CFTypeRef);
 #define CGEventCreateKeyboardEvent createKeyboardEvent
 #define CGWindowListCopyWindowInfo windowList
 #define AXUIElementCopyAttributeValue focusedElement
-#define AXUIElementGetPid getFocusedPID
 #define TISCopyCurrentKeyboardInputSource copyInputSource
 #define TISGetInputSourceProperty inputSourceProperty
 #define CFRelease releaseObject
@@ -39,7 +37,6 @@ static void releaseObject(CFTypeRef);
 #undef CGEventCreateKeyboardEvent
 #undef CGWindowListCopyWindowInfo
 #undef AXUIElementCopyAttributeValue
-#undef AXUIElementGetPid
 #undef TISCopyCurrentKeyboardInputSource
 #undef TISGetInputSourceProperty
 #undef CFRelease
@@ -85,11 +82,11 @@ static CFArrayRef windowList(CGWindowListOption option, CGWindowID window) {
     return (CFArrayRef)CFRetain((__bridge CFArrayRef)testWindows);
 }
 static AXError focusedElement(AXUIElementRef element, CFStringRef attribute, CFTypeRef *value) {
+    AXUIElementGetPid(element, &testQueriedPID);
     if (testFocusError != kAXErrorSuccess) return testFocusError;
-    *value = AXUIElementCreateApplication(testFocusedPID);
+    *value = AXUIElementCreateApplication(testQueriedPID);
     return kAXErrorSuccess;
 }
-static AXError getFocusedPID(AXUIElementRef element, pid_t *pid) { *pid=testFocusedPID; return kAXErrorSuccess; }
 static TISInputSourceRef copyInputSource(void) {
     return testInputSource == nil ? NULL : (TISInputSourceRef)CFRetain((__bridge CFTypeRef)testInputSource);
 }
@@ -131,9 +128,9 @@ static CGEventRef chineseKey(CGKeyCode key, UniChar character, CGEventFlags flag
 // typed, and the result is read back like an editor applying backspaces.
 static CGKeyCode keyCodeFor(char c) {
     switch (c) {
-        case 'a': return KEY_A; case 'e': return KEY_E; case 'g': return KEY_G; case 'h': return KEY_H;
+        case 'a': return KEY_A; case 'd': return KEY_D; case 'e': return KEY_E; case 'g': return KEY_G; case 'h': return KEY_H;
         case 'i': return KEY_I; case 'j': return KEY_J; case 'm': return KEY_M; case 'n': return KEY_N;
-        case 'o': return KEY_O; case 's': return KEY_S; case 't': return KEY_T; case 'v': return KEY_V;
+        case 'o': return KEY_O; case 's': return KEY_S; case 't': return KEY_T; case 'v': return KEY_V; case 'x': return KEY_X;
         case ' ': return KEY_SPACE; case '\b': return KEY_DELETE; default: return 0;
     }
 }
@@ -161,6 +158,31 @@ static void callbackKey(CGEventType type, CGKeyCode key, CGEventFlags flags) {
     CGEventSetType(event,type); CGEventSetFlags(event,flags);
     OmnikeyCallback(NULL,type,event,NULL);
     CFRelease(event);
+}
+
+// Types keys while Spotlight is open, from key index `busyFrom` on its focus
+// query times out, and reads back the field as Spotlight edits it.
+static std::u16string typeInSpotlight(const char *keys, size_t busyFrom) {
+    testWindows=@[spotlight(1,1)]; testFocusError=kAXErrorSuccess;
+    startNewSession(); sent.clear();
+    std::u16string field; size_t selected=0;
+    for (size_t k=0; keys[k]; ++k) {
+        if (k==busyFrom) testFocusError=kAXErrorCannotComplete;
+        CGEventRef event=CGEventCreateKeyboardEvent(NULL,keyCodeFor(keys[k]),true);
+        CGEventSetIntegerValueField(event,kCGEventTargetUnixProcessID,5050);
+        _flag=0; _keycode=keyCodeFor(keys[k]);
+        if (OmnikeyCallback(NULL,kCGEventKeyDown,event,NULL)!=NULL) field += (char16_t)keys[k];
+        CFRelease(event);
+        for (size_t i=0; i<sent.size(); i+=2) {
+            expect(sent[i].key!=KEY_DELETE, "no Backspace is sent to Spotlight");
+            if (sent[i].key==KEY_LEFT && (sent[i].flags & kCGEventFlagMaskShift)) { ++selected; continue; }
+            if (sent[i].text.empty()) continue;
+            field.erase(field.size()-std::min(selected,field.size())); selected=0;
+            field += sent[i].text;
+        }
+        sent.clear();
+    }
+    return field;
 }
 
 static void testChineseMode() {
@@ -268,20 +290,39 @@ int main() { @autoreleasepool {
     expect(sourceReleases==before+1, "missing language array is safe and source is released");
     vOtherLanguage=0;
 
-    testWindows=@[spotlight(1,1)]; _eventTargetPID=4242;
-    expect(isSpotlightVisible(), "active Spotlight target");
+    testWindows=@[spotlight(1,1)]; _eventTargetPID=4242; testQueriedPID=0;
+    expect(isSpotlightVisible() && testQueriedPID==0, "active Spotlight target needs no focus query");
+    // The session tap reports the frontmost app as the target while Spotlight has the keys.
     _eventTargetPID=5050;
-    expect(!isSpotlightVisible(), "fading Spotlight does not select text in another app");
+    expect(isSpotlightVisible() && testQueriedPID==4242, "Spotlight's own focused field enables replacement");
+    _eventTargetPID=0;
+    expect(isSpotlightVisible(), "focused field counts when target PID is unavailable");
+    testFocusError=kAXErrorCannotComplete; _eventTargetPID=5050;
+    expect(isSpotlightVisible(), "busy Spotlight keeps its last focused answer");
+    testFocusError=kAXErrorNoValue;
+    expect(!isSpotlightVisible(), "closing Spotlight does not select text in another app");
+    testFocusError=kAXErrorCannotComplete;
+    expect(!isSpotlightVisible(), "timeout after Spotlight closed stays off");
+    testFocusError=kAXErrorSuccess;
     testWindows=@[spotlight(0,1)]; _eventTargetPID=4242;
     expect(!isSpotlightVisible(), "zero-alpha Spotlight ignored");
     testWindows=@[spotlight(1,0)];
     expect(!isSpotlightVisible(), "background Spotlight ignored");
-    testWindows=@[spotlight(1,1)]; _eventTargetPID=0; testFocusedPID=4242;
-    expect(isSpotlightVisible(), "focused element fallback when target PID is unavailable");
-    testFocusedPID=5050;
-    expect(!isSpotlightVisible(), "fallback excludes focus in another app");
-    testFocusError=kAXErrorCannotComplete;
-    expect(!isSpotlightVisible(), "focus timeout does not enable selection replacement");
+    testWindows=@[spotlight(1,1)]; _eventTargetPID=5050;
+    expect(isSpotlightVisible(), "Spotlight focused again");
+    testWindows=@[];
+    expect(!isSpotlightVisible(), "hidden Spotlight forgets its focus");
+    testWindows=@[spotlight(1,1)]; testFocusError=kAXErrorCannotComplete;
+    expect(!isSpotlightVisible(), "focus timeout without an answer does not enable selection replacement");
+
+    // Spotlight on macOS 26 ignores synthetic Backspace, so words must be replaced
+    // by Shift+Left selection even though the target PID is the frontmost app.
+    vLanguage=1; vCodeTable=0; vFixRecommendBrowser=1;
+    convertToolHotKey=EMPTY_HOTKEY; vSwitchKeyStatus=0xFE0000FE; _lastFlag=0;
+    expect(typeInSpotlight("eex", 99)==u"ễ", "eex becomes ễ in Spotlight");
+    // The focus query times out while Spotlight searches for "đa".
+    expect(typeInSpotlight("ddax", 3)==u"đã", "ddax becomes đã while Spotlight is busy");
+    testWindows=@[]; testFocusError=kAXErrorCannotComplete;
 
     sent.clear(); vCodeTable=2; _syncKey.clear(); backspaceCreates=0;
     SendBackspace(); SendBackspace();
