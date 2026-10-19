@@ -8,6 +8,29 @@ The fork is based on upstream [tuyenvm/OpenKey](https://github.com/tuyenvm/OpenK
 identified by the source commit in their file name, for example
 `OpenKey-2.0.5-<commit>-universal.dmg`. The upstream history is kept below.
 
+## [2.0.10] - 2026-10-19
+
+### Changed
+
+- Windows: the settings window is rebuilt to match the macOS layout. A toolbar
+  switches between five pages (Chung, Bộ gõ, Gõ tắt, Hệ thống, Thông tin);
+  options are grouped rows with switches, the window fits each page, and the
+  colors follow the Windows light/dark setting.
+
+### Fixed
+
+- Windows: Vietnamese typing no longer stops working after automation tools
+  (such as Claude computer use) send bursts of synthetic input, which until now
+  needed an Omnikey restart. The keyboard hook no longer waits on a busy target
+  app when checking its IME state, modifier keys are re-read from the real key
+  state so a missed Ctrl/Alt release cannot leave them stuck, and the hooks are
+  reinstalled automatically if Windows removes them.
+
+### Upgrade notes
+
+- Windows-only release. macOS stays at 2.0.9 and Linux at 2.0.7; their packages
+  are attached again so the latest release lists every platform.
+
 ## [2.0.9] - 2026-10-14
 
 ### Fixed
