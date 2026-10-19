@@ -14,17 +14,189 @@ redistribute your new version, it MUST be open source.
 #include "MainControlDialog.h"
 #include "AppDelegate.h"
 #include <Shlobj.h>
-#include <Uxtheme.h>
 
-#pragma comment(lib, "UxTheme.lib")
+#define IDC_TOOLBAR_FIRST       3000
+#define IDC_LINK_HOME_PAGE      3100
+#define IDC_LINK_RELEASES       3101
+#define IDC_LINK_FEEDBACK       3102
+
+#define SETTINGS_WIDTH          540
+#define SETTINGS_MAX_HEIGHT     620
 
 static Uint16 _lastKeyCode;
+
+static const LPCWSTR pageTitles[] = { L"Chung", L"Bộ gõ", L"Gõ tắt", L"Hệ thống", L"Thông tin" };
+// Segoe Fluent Icons / MDL2 Assets: Settings, Keyboard, Edit, Monitor, Info.
+static const LPCWSTR pageGlyphs[] = { L"\xE713", L"\xE765", L"\xE70F", L"\xE7F4", L"\xE946" };
+
+using FormUI::Row;
+using FormUI::item;
+using FormUI::textItem;
 
 MainControlDialog::MainControlDialog(const HINSTANCE& hInstance, const int& resourceId)
     : BaseDialog(hInstance, resourceId) {
 }
 
 MainControlDialog::~MainControlDialog() {
+}
+
+static HWND toggle(HWND parent, int id) {
+    return FormUI::createToggle(parent, id, L"");
+}
+
+void MainControlDialog::buildGeneralPage(FormUI::Page& page) {
+    HWND parent = page.hwnd();
+    checkVietnamese = FormUI::createSegment(parent, IDC_RADIO_METHOD_VIETNAMESE, L"Tiếng Việt", true, FormUI::SegmentFirst);
+    checkEnglish = FormUI::createSegment(parent, IDC_RADIO_METHOD_ENGLISH, L"English", true, FormUI::SegmentMiddle);
+    checkChinese = FormUI::createSegment(parent, IDC_RADIO_METHOD_CHINESE, L"中文", true, FormUI::SegmentLast);
+    createToolTip(checkVietnamese, IDS_STRING_VIET);
+    createToolTip(checkEnglish, IDS_STRING_ENG);
+    createToolTip(checkChinese, _T("Gõ tiếng Trung bằng Pinyin"));
+
+    comboBoxInputType = FormUI::createComboBox(parent, IDC_COMBO_INPUT_TYPE, FormUI::scale(150), OmnikeyManager::getInputType());
+    comboBoxTableCode = FormUI::createComboBox(parent, IDC_COMBO_TABLE_CODE, FormUI::scale(200), OmnikeyManager::getTableCode());
+    page.addSection(nullptr, {
+        { L"Chế độ gõ", L"", { item(checkVietnamese), item(checkEnglish), item(checkChinese) } },
+        { L"Kiểu gõ", L"", { item(comboBoxInputType) } },
+        { L"Bảng mã", L"Thường dùng Unicode", { item(comboBoxTableCode) } },
+    });
+
+    checkCtrl = FormUI::createSegment(parent, IDC_CHECK_SWITCH_KEY_CTRL, L"Ctrl", false, FormUI::SegmentFirst);
+    checkAlt = FormUI::createSegment(parent, IDC_CHECK_SWITCH_KEY_ALT, L"Alt", false, FormUI::SegmentMiddle);
+    checkWin = FormUI::createSegment(parent, IDC_CHECK_SWITCH_KEY_WIN, L"Win", false, FormUI::SegmentMiddle);
+    checkShift = FormUI::createSegment(parent, IDC_CHECK_SWITCH_KEY_SHIFT, L"Shift", false, FormUI::SegmentLast);
+    textSwitchKey = FormUI::createKeyField(parent, IDC_SWITCH_KEY_KEY);
+    checkBeep = toggle(parent, IDC_CHECK_SWITCH_KEY_BEEP);
+    createToolTip(checkCtrl, IDS_STRING_CTRL);
+    createToolTip(checkAlt, IDS_STRING_ALT);
+    createToolTip(checkWin, IDS_STRING_WIN);
+    createToolTip(checkShift, IDS_STRING_SHIFT);
+    createToolTip(textSwitchKey, IDS_STRING_SWITCH_KEY);
+    page.addSection(L"Phím chuyển chế độ", {
+        { L"Phím tắt", L"Xoay vòng Tiếng Việt → English → 中文",
+            { item(checkCtrl), item(checkAlt), item(checkWin), item(checkShift), textItem(L"+"), item(textSwitchKey, FormUI::scale(8)) } },
+        { L"Kêu beep khi chuyển chế độ", L"Không áp dụng với chuyển chế độ thông minh", { item(checkBeep) } },
+    });
+
+    checkSmartSwitchKey = toggle(parent, IDC_CHECK_SMART_SWITCH_KEY);
+    checkRememberTableCode = toggle(parent, IDC_CHECK_SMART_SWITCH_CODE);
+    checkAllowOtherLanguages = toggle(parent, IDC_CHECK_OTHER_LANGUAGES);
+    page.addSection(L"Chuyển chế độ thông minh", {
+        { L"Chuyển chế độ thông minh", L"Tự ghi nhớ chế độ gõ theo từng ứng dụng", { item(checkSmartSwitchKey) } },
+        { L"Tự ghi nhớ bảng mã theo ứng dụng", L"", { item(checkRememberTableCode) } },
+        { L"Tắt tiếng Việt khi bộ gõ hệ thống khác tiếng Anh", L"", { item(checkAllowOtherLanguages) } },
+    });
+}
+
+void MainControlDialog::buildTypingPage(FormUI::Page& page) {
+    HWND parent = page.hwnd();
+    checkSpelling = toggle(parent, IDC_CHECK_SPELLING);
+    checkRestoreIfWrongSpelling = toggle(parent, IDC_CHECK_RESTORE_IF_WRONG_SPELLING);
+    checkAllowZWJF = toggle(parent, IDC_CHECK_ALLOW_ZJWF);
+    page.addSection(L"Chính tả", {
+        { L"Kiểm tra chính tả", L"Hạn chế gõ sai từ tiếng Việt", { item(checkSpelling) } },
+        { L"Tự khôi phục phím với từ sai", L"Từ không đúng chính tả tiếng Việt được trả lại các phím đã gõ", { item(checkRestoreIfWrongSpelling) } },
+        { L"Cho phép “z w j f” làm phụ âm đầu", L"", { item(checkAllowZWJF) } },
+    });
+
+    checkModernOrthorgraphy = toggle(parent, IDC_CHECK_MODERN_ORTHORGRAPHY);
+    checkCapsFirstChar = toggle(parent, IDC_CHECK_CAPS_FIRST_CHAR);
+    page.addSection(L"Dấu và chữ hoa", {
+        { L"Đặt dấu kiểu mới: oà, uý", L"Thay vì kiểu cũ òa, úy", { item(checkModernOrthorgraphy) } },
+        { L"Viết hoa chữ cái đầu câu", L"Sau dấu chấm câu và khi xuống dòng", { item(checkCapsFirstChar) } },
+    });
+
+    checkTempOffSpelling = toggle(parent, IDC_CHECK_TEMP_OFF_SPELLING);
+    checkTempOffOmnikey = toggle(parent, IDC_CHECK_TEMP_OFF_OPEN_KEY);
+    page.addSection(L"Phím tạm tắt", {
+        { L"Tạm tắt chính tả bằng phím Ctrl", L"Cho từ như Đắk Lắk, Krông…; tự bật lại ở từ tiếp theo", { item(checkTempOffSpelling) } },
+        { L"Tạm tắt Omnikey bằng phím Alt", L"Tạm ngừng cho tới khi bạn gõ một từ mới", { item(checkTempOffOmnikey) } },
+    });
+}
+
+void MainControlDialog::buildMacroPage(FormUI::Page& page) {
+    HWND parent = page.hwnd();
+    checkUseMacro = toggle(parent, IDC_CHECK_USE_MACRO);
+    checkUseMacroInEnglish = toggle(parent, IDC_CHECK_USE_MACRO_IN_ENGLISH);
+    checkMacroAutoCaps = toggle(parent, IDC_CHECK_AUTO_CAPS);
+    HWND macroTable = FormUI::createButton(parent, IDC_BUTTON_MACRO_TABLE, L"Mở bảng…");
+    page.addSection(L"Gõ tắt", {
+        { L"Cho phép gõ tắt", L"Tiết kiệm thời gian gõ các cụm từ thường dùng", { item(checkUseMacro) } },
+        { L"Gõ tắt cả khi tắt tiếng Việt", L"", { item(checkUseMacroInEnglish) } },
+        { L"Tự động viết hoa theo phím tắt", L"", { item(checkMacroAutoCaps) } },
+        { L"Bảng gõ tắt", L"Quản lý danh sách từ gõ tắt", { item(macroTable) } },
+    });
+
+    checkQuickTelex = toggle(parent, IDC_CHECK_QUICK_TELEX);
+    checkQuickStartConsonant = toggle(parent, IDC_CHECK_QUICK_START_CONSONANT);
+    checkQuickEndConsonant = toggle(parent, IDC_CHECK_QUICK_END_CONSONANT);
+    page.addSection(L"Gõ nhanh", {
+        { L"Gõ nhanh phụ âm", L"cc→ch, gg→gi, kk→kh, nn→ng, qq→qu, pp→ph, tt→th", { item(checkQuickTelex) } },
+        { L"Gõ tắt phụ âm đầu", L"f→ph, j→gi, w→qu  ·  fải→phải, jảng→giảng", { item(checkQuickStartConsonant) } },
+        { L"Gõ tắt phụ âm cuối", L"g→ng, h→nh, k→ch  ·  nhah→nhanh, bák→bách", { item(checkQuickEndConsonant) } },
+    });
+}
+
+void MainControlDialog::buildSystemPage(FormUI::Page& page) {
+    HWND parent = page.hwnd();
+    checkRunWithWindows = toggle(parent, IDC_CHECK_RUN_WITH_WINDOWS);
+    checkShowOnStartup = toggle(parent, IDC_CHECK_SHOW_ON_STARTUP);
+    checkCheckNewVersion = toggle(parent, IDC_CHECK_CHECK_UPDATE);
+    checkRunAsAdmin = toggle(parent, IDC_CHECK_RUN_AS_ADMIN);
+    checkCreateDesktopShortcut = toggle(parent, IDC_CHECK_CHECK_CREATE_SHORTCUT);
+    page.addSection(L"Khởi động", {
+        { L"Khởi động cùng Windows", L"", { item(checkRunWithWindows) } },
+        { L"Mở cửa sổ này khi khởi động", L"", { item(checkShowOnStartup) } },
+        { L"Kiểm tra bản mới khi khởi động", L"", { item(checkCheckNewVersion) } },
+        { L"Chạy với quyền Admin", L"Để gõ được trong các ứng dụng chạy bằng quyền Admin", { item(checkRunAsAdmin) } },
+        { L"Tạo biểu tượng trên Desktop", L"", { item(checkCreateDesktopShortcut) } },
+    });
+
+    checkModernIcon = toggle(parent, IDC_CHECK_MODERN_ICON);
+    page.addSection(L"Giao diện", {
+        { L"Biểu tượng hiện đại trên khay hệ thống", L"Biểu tượng đơn sắc, hợp với giao diện tối", { item(checkModernIcon) } },
+    });
+
+    checkFixRecommendBrowser = toggle(parent, IDC_CHECK_FIX_RECOMMEND_BROWSER);
+    checkFixChromium = toggle(parent, IDC_CHECK_FIX_CHROMIUM);
+    checkUseClipboard = toggle(parent, IDC_CHECK_USE_CLIPBOARD);
+    checkSupportMetroApp = toggle(parent, IDC_CHECK_SUPPORT_METRO_APP);
+    page.addSection(L"Tương thích", {
+        { L"Sửa lỗi gợi ý", L"Tránh lặp chữ trên thanh địa chỉ trình duyệt, Excel…", { item(checkFixRecommendBrowser) } },
+        { L"Sửa lỗi trên Chromium (beta)", L"Chrome, Edge, Brave", { item(checkFixChromium) } },
+        { L"Gửi chữ qua clipboard", L"Mặc định nên tắt; chỉ bật khi ứng dụng gõ bị lỗi", { item(checkUseClipboard) } },
+        { L"Hỗ trợ ứng dụng Metro", L"Ứng dụng Store chạy trong ApplicationFrameHost", { item(checkSupportMetroApp) } },
+    });
+
+    hUpdateButton = FormUI::createButton(parent, IDC_BUTTON_CHECK_UPDATE, L"Kiểm tra bản mới…");
+    HWND defaultButton = FormUI::createButton(parent, ID_BTN_DEFAULT, L"Khôi phục…");
+    HWND exitButton = FormUI::createButton(parent, IDBUTTON_EXIT, L"Thoát");
+    page.addSection(L"Omnikey", {
+        { L"Cập nhật", L"", { item(hUpdateButton) } },
+        { L"Khôi phục cài đặt mặc định", L"", { item(defaultButton) } },
+        { L"Thoát Omnikey", L"Ngừng bộ gõ và ẩn biểu tượng trên khay hệ thống", { item(exitButton) } },
+    });
+}
+
+void MainControlDialog::buildAboutPage(FormUI::Page& page) {
+    HWND parent = page.hwnd();
+    FormUI::About about;
+    about.icon = (HICON)LoadImage(hInstance, MAKEINTRESOURCE(IDI_APP_ICON), IMAGE_ICON,
+                                  FormUI::scale(96), FormUI::scale(96), LR_DEFAULTCOLOR);
+    about.name = L"Omnikey";
+    about.tagline = L"Bộ gõ Tiếng Việt đa nền tảng";
+    wchar_t buffer[256];
+    wsprintfW(buffer, _T("Phiên bản %s cho Windows · Cập nhật %s"), OmnikeyHelper::getVersionString().c_str(), _T(__DATE__));
+    about.version = buffer;
+    about.body = L"Omnikey là bộ gõ đa nền tảng mã nguồn mở, được phát triển và duy trì tại GitHub của Omnikey, "
+                 L"tiếp nối công trình ban đầu của Mai Vũ Tuyên.";
+    about.buttons = {
+        FormUI::createButton(parent, IDC_LINK_HOME_PAGE, L"Trang chủ", false),
+        FormUI::createButton(parent, IDC_LINK_RELEASES, L"Bản phát hành", false),
+        FormUI::createButton(parent, IDC_LINK_FEEDBACK, L"Góp ý", false),
+    };
+    about.footer = L"Omnikey · mã nguồn mở theo GPL-3.0";
+    page.setAbout(about);
 }
 
 void MainControlDialog::initDialog() {
@@ -39,172 +211,74 @@ void MainControlDialog::initDialog() {
     wsprintfW(titleBuffer, title, OmnikeyHelper::getVersionString().c_str());
     SetWindowText(hDlg, titleBuffer);
 
-    //input type
-    comboBoxInputType = GetDlgItem(hDlg, IDC_COMBO_INPUT_TYPE);
-    vector<LPCTSTR>& inputType = OmnikeyManager::getInputType();
-    for (int i = 0; i < inputType.size(); i++) {
-        SendMessage(comboBoxInputType, CB_ADDSTRING, i, reinterpret_cast<LPARAM>(inputType[i]));
+    //the dialog template only provides the window; every control is built below
+    vector<HWND> templateControls;
+    for (HWND child = GetWindow(hDlg, GW_CHILD); child; child = GetWindow(child, GW_HWNDNEXT))
+        templateControls.push_back(child);
+    for (HWND child : templateControls)
+        DestroyWindow(child);
+
+    //toolbar
+    int x = 0;
+    for (int i = 0; i < _countof(pageTitles); i++) {
+        HWND button = FormUI::createToolbarItem(hDlg, IDC_TOOLBAR_FIRST + i, pageGlyphs[i], pageTitles[i]);
+        toolbarItems.push_back(button);
+        x += FormUI::preferredSize(button).cx;
     }
-    createToolTip(comboBoxInputType, IDS_STRING_INPUT);
-
-    //code table
-    comboBoxTableCode = GetDlgItem(hDlg, IDC_COMBO_TABLE_CODE);
-    vector<LPCTSTR>& tableCode = OmnikeyManager::getTableCode();
-    for (int i = 0; i < tableCode.size(); i++) {
-        SendMessage(comboBoxTableCode, CB_ADDSTRING, i, reinterpret_cast<LPARAM>(tableCode[i]));
+    int gap = FormUI::scale(4);
+    int itemHeight = FormUI::preferredSize(toolbarItems[0]).cy;
+    toolbarHeight = itemHeight + FormUI::scale(16);
+    x = (FormUI::scale(SETTINGS_WIDTH) - x - gap * ((int)toolbarItems.size() - 1)) / 2;
+    for (HWND button : toolbarItems) {
+        SIZE size = FormUI::preferredSize(button);
+        SetWindowPos(button, nullptr, x, FormUI::scale(8), size.cx, size.cy, SWP_NOZORDER | SWP_NOACTIVATE);
+        x += size.cx + gap;
     }
-    createToolTip(comboBoxTableCode, IDS_STRING_CODE);
 
-    //init tabview
-    hTab = GetDlgItem(hDlg, IDC_TAB_CONTROL);
-    TCITEM tci = { 0 };
-    tci.mask = TCIF_TEXT;
-    tci.pszText = (LPWSTR)_T("Bộ gõ");
-    TabCtrl_InsertItem(hTab, 0, &tci);
-    tci.pszText = (LPWSTR)_T("Gõ tắt");
-    TabCtrl_InsertItem(hTab, 1, &tci);
-    tci.pszText = (LPWSTR)_T("Hệ thống");
-    TabCtrl_InsertItem(hTab, 2, &tci);
-    tci.pszText = (LPWSTR)_T("Thông tin");
-    TabCtrl_InsertItem(hTab, 3, &tci);
-    RECT r;
-    TabCtrl_GetItemRect(hTab, 0, &r);
-    TabCtrl_SetItemSize(hTab, r.right - r.left, (r.bottom - r.top) * 1.428f);
+    //pages
+    void (MainControlDialog::*builders[])(FormUI::Page&) = {
+        &MainControlDialog::buildGeneralPage, &MainControlDialog::buildTypingPage, &MainControlDialog::buildMacroPage,
+        &MainControlDialog::buildSystemPage, &MainControlDialog::buildAboutPage,
+    };
+    for (auto builder : builders) {
+        pages.emplace_back(new FormUI::Page(hDlg));
+        (this->*builder)(*pages.back());
+    }
 
-    //create tab page
-    hTabPage1 = CreateDialogParam(hIns, MAKEINTRESOURCE(IDD_DIALOG_TAB_GENERAL), hDlg, tabPageEventProc, (LPARAM)this);
-    hTabPage2 = CreateDialogParam(hIns, MAKEINTRESOURCE(IDD_DIALOG_TAB_MACRO), hDlg, tabPageEventProc, (LPARAM)this);
-    hTabPage3 = CreateDialogParam(hIns, MAKEINTRESOURCE(IDD_DIALOG_TAB_SYSTEM), hDlg, tabPageEventProc, (LPARAM)this);
-    hTabPage4 = CreateDialogParam(hIns, MAKEINTRESOURCE(IDD_DIALOG_TAB_INFO), hDlg, tabPageEventProc, (LPARAM)this);
-    RECT rc;//find tab control's rectangle
-    GetWindowRect(hTab, &rc);
-    POINT offset = { 0 };
-    ScreenToClient(hDlg, &offset);
-    OffsetRect(&rc, offset.x, offset.y); //convert to client coordinates
-    rc.top += (LONG)((r.bottom - r.top) * 1.428f);
-    SetWindowPos(hTabPage1, 0, rc.left + 1, rc.top + 3, rc.right - rc.left - 5, rc.bottom - rc.top - 5, SWP_HIDEWINDOW);
-    SetWindowPos(hTabPage2, 0, rc.left + 1, rc.top + 3, rc.right - rc.left - 5, rc.bottom - rc.top - 6, SWP_HIDEWINDOW);
-    SetWindowPos(hTabPage3, 0, rc.left + 1, rc.top + 3, rc.right - rc.left - 5, rc.bottom - rc.top - 6, SWP_HIDEWINDOW);
-    SetWindowPos(hTabPage4, 0, rc.left + 1, rc.top + 3, rc.right - rc.left - 5, rc.bottom - rc.top - 6, SWP_HIDEWINDOW);
-    onTabIndexChanged();
-
-    checkCtrl = GetDlgItem(hDlg, IDC_CHECK_SWITCH_KEY_CTRL);
-    createToolTip(checkCtrl, IDS_STRING_CTRL);
-
-    checkAlt = GetDlgItem(hDlg, IDC_CHECK_SWITCH_KEY_ALT);
-    createToolTip(checkAlt, IDS_STRING_ALT);
-
-    checkWin = GetDlgItem(hDlg, IDC_CHECK_SWITCH_KEY_WIN);
-    createToolTip(checkWin, IDS_STRING_WIN);
-
-    checkShift = GetDlgItem(hDlg, IDC_CHECK_SWITCH_KEY_SHIFT);
-    createToolTip(checkShift, IDS_STRING_SHIFT);
-
-    textSwitchKey = GetDlgItem(hDlg, IDC_SWITCH_KEY_KEY);
-    createToolTip(textSwitchKey, IDS_STRING_SWITCH_KEY);
-
-    checkBeep = GetDlgItem(hDlg, IDC_CHECK_SWITCH_KEY_BEEP);
-    createToolTip(checkBeep, IDS_STRING_BEEP);
-
-    checkVietnamese = GetDlgItem(hDlg, IDC_RADIO_METHOD_VIETNAMESE);
-    createToolTip(checkVietnamese, IDS_STRING_VIET);
-
-    checkEnglish = GetDlgItem(hDlg, IDC_RADIO_METHOD_ENGLISH);
-    createToolTip(checkEnglish, IDS_STRING_ENG);
-    checkChinese = GetDlgItem(hDlg, IDC_RADIO_METHOD_CHINESE);
-
-    /*--------end common---------*/
-
-    checkModernOrthorgraphy = GetDlgItem(hTabPage1, IDC_CHECK_MODERN_ORTHORGRAPHY);
-    createToolTip(checkModernOrthorgraphy, IDS_STRING_MORDEN_ORTHORGRAPHY);
-
-    checkFixRecommendBrowser = GetDlgItem(hTabPage1, IDC_CHECK_FIX_RECOMMEND_BROWSER);
-    createToolTip(checkFixRecommendBrowser, IDS_STRING_FIX_BROWSER);
-
-    checkSpelling = GetDlgItem(hTabPage1, IDC_CHECK_SPELLING);
-    createToolTip(checkSpelling, IDS_STRING_SPELLING_CHECK);
-
-    checkRestoreIfWrongSpelling = GetDlgItem(hTabPage1, IDC_CHECK_RESTORE_IF_WRONG_SPELLING);
-    createToolTip(checkRestoreIfWrongSpelling, IDS_STRING_RESTORE_IF_WRONG_SPELLING);
-
-    checkAllowZWJF = GetDlgItem(hTabPage1, IDC_CHECK_ALLOW_ZJWF);
-    createToolTip(checkAllowZWJF, IDS_STRING_ALLOW_ZWFJ);
-
-    checkTempOffSpelling = GetDlgItem(hTabPage1, IDC_CHECK_TEMP_OFF_SPELLING);
-    createToolTip(checkTempOffSpelling, IDS_STRING_TEMP_OFF_SPELLING);
-
-    checkSmartSwitchKey = GetDlgItem(hTabPage1, IDC_CHECK_SMART_SWITCH_KEY);
-    createToolTip(checkSmartSwitchKey, IDS_STRING_SMART_SWITCH_KEY);
-
-    checkCapsFirstChar = GetDlgItem(hTabPage1, IDC_CHECK_CAPS_FIRST_CHAR);
-    createToolTip(checkCapsFirstChar, IDS_STRING_CAPS_FIRST_CHAR);
-
-    checkRememberTableCode = GetDlgItem(hTabPage1, IDC_CHECK_SMART_SWITCH_CODE);
-    createToolTip(checkRememberTableCode, IDS_STRING_REMEMBER_TABLE_CODE);
-
-    checkAllowOtherLanguages = GetDlgItem(hTabPage1, IDC_CHECK_OTHER_LANGUAGES);
-    createToolTip(checkAllowOtherLanguages, IDS_STRING_OTHER_LANGUAGES);
-
-    checkTempOffOmnikey = GetDlgItem(hTabPage1, IDC_CHECK_TEMP_OFF_OPEN_KEY);
-    createToolTip(checkTempOffOmnikey, IDS_STRING_TEMP_OFF_OMNIKEY);
-
-    /*------------end tab 1----------------*/
-
-    checkQuickStartConsonant = GetDlgItem(hTabPage2, IDC_CHECK_QUICK_START_CONSONANT);
-    createToolTip(checkQuickStartConsonant, IDS_STRING_START_CONSONANT);
-
-    checkQuickEndConsonant = GetDlgItem(hTabPage2, IDC_CHECK_QUICK_END_CONSONANT);
-    createToolTip(checkQuickEndConsonant, IDS_STRING_END_CONSONANT);
-
-    checkQuickTelex = GetDlgItem(hTabPage2, IDC_CHECK_QUICK_TELEX);
-    createToolTip(checkQuickTelex, IDS_STRING_QUICK_TELEX);
-
-    checkUseMacro = GetDlgItem(hTabPage2, IDC_CHECK_USE_MACRO);
-    createToolTip(checkUseMacro, IDS_STRING_MACRO);
-
-    checkUseMacroInEnglish = GetDlgItem(hTabPage2, IDC_CHECK_USE_MACRO_IN_ENGLISH);
-    createToolTip(checkUseMacroInEnglish, IDS_STRING_MACRO_IN_ENG);
-
-    checkMacroAutoCaps = GetDlgItem(hTabPage2, IDC_CHECK_AUTO_CAPS);
-    createToolTip(checkMacroAutoCaps, IDS_STRING_MACRO_AUTO_CAP);
-
-    hUpdateButton = GetDlgItem(hDlg, IDC_BUTTON_CHECK_UPDATE);
-
-    /*------------end tab 2----------------*/
-
-    checkModernIcon = GetDlgItem(hTabPage3, IDC_CHECK_MODERN_ICON);
-    createToolTip(checkModernIcon, IDS_STRING_MODERN_ICON);
-
-    checkShowOnStartup = GetDlgItem(hTabPage3, IDC_CHECK_SHOW_ON_STARTUP);
-    createToolTip(checkShowOnStartup, IDS_STRING_SHOW_ON_STARTUP);
-
-    checkRunWithWindows = GetDlgItem(hTabPage3, IDC_CHECK_RUN_WITH_WINDOWS);
-    createToolTip(checkRunWithWindows, IDS_STRING_RUN_ON_STARTUP);
-
-    checkCreateDesktopShortcut = GetDlgItem(hTabPage3, IDC_CHECK_CHECK_CREATE_SHORTCUT);
-    createToolTip(checkCreateDesktopShortcut, IDS_STRING_CREATE_DESKTOP);
-
-    checkRunAsAdmin = GetDlgItem(hTabPage3, IDC_CHECK_RUN_AS_ADMIN);
-    createToolTip(checkRunAsAdmin, IDS_STRING_RUN_AS_ADMIN);
-
-    checkCheckNewVersion = GetDlgItem(hTabPage3, IDC_CHECK_CHECK_UPDATE);
-    createToolTip(checkCheckNewVersion, IDS_STRING_CHECK_UPDATE);
-
-    checkSupportMetroApp = GetDlgItem(hTabPage3, IDC_CHECK_SUPPORT_METRO_APP);
-    createToolTip(checkSupportMetroApp, IDS_STRING_SUPPORT_METRO);
-
-    checkUseClipboard = GetDlgItem(hTabPage3, IDC_CHECK_USE_CLIPBOARD);
-    createToolTip(checkUseClipboard, IDS_STRING_USE_CLIPBOARD);
-
-    checkFixChromium = GetDlgItem(hTabPage3, IDC_CHECK_FIX_CHROMIUM);
-    createToolTip(checkFixChromium, IDS_STRING_FIX_CHROMIUM);
-
-    /*------------end tab 3----------------*/
-
-    SendDlgItemMessage(hDlg, IDBUTTON_OK, BM_SETIMAGE, IMAGE_ICON, (LPARAM)LoadIcon(hIns, MAKEINTRESOURCEW(IDI_ICON_OK_BUTTON)));
-    SendDlgItemMessage(hDlg, ID_BTN_DEFAULT, BM_SETIMAGE, IMAGE_ICON, (LPARAM)LoadIcon(hIns, MAKEINTRESOURCEW(IDI_ICON_DEFAULT_BUTTON)));
-    SendDlgItemMessage(hDlg, IDBUTTON_EXIT, BM_SETIMAGE, IMAGE_ICON, (LPARAM)LoadIcon(hIns, MAKEINTRESOURCEW(IDI_ICON_EXIT_BUTTON)));
+    FormUI::applyWindowTheme(hDlg);
     fillData();
+    showPage(0);
+
+    //center on the work area once the final size is known
+    RECT window, work;
+    GetWindowRect(hDlg, &window);
+    SystemParametersInfo(SPI_GETWORKAREA, 0, &work, 0);
+    SetWindowPos(hDlg, nullptr,
+                 work.left + (work.right - work.left - (window.right - window.left)) / 2,
+                 work.top + max(0L, (work.bottom - work.top - FormUI::scale(SETTINGS_MAX_HEIGHT)) / 3),
+                 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+void MainControlDialog::showPage(int index) {
+    if (index < 0 || index >= (int)pages.size()) return;
+    currentPage = index;
+    for (int i = 0; i < (int)toolbarItems.size(); i++)
+        FormUI::setToolbarItemSelected(toolbarItems[i], i == index);
+
+    //size the window to fit the page, like the macOS preference window
+    int width = FormUI::scale(SETTINGS_WIDTH);
+    RECT work;
+    SystemParametersInfo(SPI_GETWORKAREA, 0, &work, 0);
+    int maxHeight = min(FormUI::scale(SETTINGS_MAX_HEIGHT), (int)(work.bottom - work.top) - toolbarHeight - FormUI::scale(80));
+    int height = min(pages[index]->idealHeight(width), maxHeight);
+
+    RECT frame = { 0, 0, width, toolbarHeight + height };
+    AdjustWindowRectEx(&frame, (DWORD)GetWindowLongPtr(hDlg, GWL_STYLE), FALSE, (DWORD)GetWindowLongPtr(hDlg, GWL_EXSTYLE));
+    SetWindowPos(hDlg, nullptr, 0, 0, frame.right - frame.left, frame.bottom - frame.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+    pages[index]->place(0, toolbarHeight, width, height);
+    for (int i = 0; i < (int)pages.size(); i++)
+        ShowWindow(pages[i]->hwnd(), i == index ? SW_SHOW : SW_HIDE);
 }
 
 INT_PTR MainControlDialog::eventProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -213,10 +287,41 @@ INT_PTR MainControlDialog::eventProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM
         this->hDlg = hDlg;
         initDialog();
         return TRUE;
+    case WM_CTLCOLORDLG:
+        return (INT_PTR)FormUI::windowBrush();
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORSTATIC:
+        return FormUI::controlColor((HDC)wParam);
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hDlg, &ps);
+        RECT rc;
+        GetClientRect(hDlg, &rc);
+        RECT bar = { 0, 0, rc.right, toolbarHeight };
+        FormUI::fillRect(hdc, bar, FormUI::theme().window);
+        RECT line = { 0, toolbarHeight - 1, rc.right, toolbarHeight };
+        FormUI::fillRect(hdc, line, FormUI::theme().separator);
+        EndPaint(hDlg, &ps);
+        return TRUE;
+    }
+    case WM_SETTINGCHANGE:
+        if (lParam && lstrcmpW((LPCWSTR)lParam, L"ImmersiveColorSet") == 0) {
+            FormUI::refreshTheme();
+            FormUI::applyWindowTheme(hDlg);
+        }
+        break;
+    case WM_CLOSE:
+        AppDelegate::getInstance()->closeDialog(this);
+        return TRUE;
     case WM_COMMAND: {
         int wmId = LOWORD(wParam);
+        if (wmId >= IDC_TOOLBAR_FIRST && wmId < IDC_TOOLBAR_FIRST + (int)toolbarItems.size()) {
+            showPage(wmId - IDC_TOOLBAR_FIRST);
+            break;
+        }
         switch (wmId) {
-        case IDBUTTON_OK:
+        case IDCANCEL:
             AppDelegate::getInstance()->closeDialog(this);
             break;
         case IDBUTTON_EXIT:
@@ -240,8 +345,14 @@ INT_PTR MainControlDialog::eventProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM
         case IDC_BUTTON_CHECK_UPDATE:
             onUpdateButton();
             break;
-        case IDC_BUTTON_GO_SOURCE_CODE:
+        case IDC_LINK_HOME_PAGE:
             ShellExecute(NULL, _T("open"), _T("https://github.com/jetaudio/Omnikey"), NULL, NULL, SW_SHOWNORMAL);
+            break;
+        case IDC_LINK_RELEASES:
+            ShellExecute(NULL, _T("open"), _T("https://github.com/jetaudio/Omnikey/releases"), NULL, NULL, SW_SHOWNORMAL);
+            break;
+        case IDC_LINK_FEEDBACK:
+            ShellExecute(NULL, _T("open"), _T("https://github.com/jetaudio/Omnikey/issues"), NULL, NULL, SW_SHOWNORMAL);
             break;
         default:
             if (HIWORD(wParam) == CBN_SELCHANGE) {
@@ -261,122 +372,63 @@ INT_PTR MainControlDialog::eventProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM
         }
         break;
     }
-    case WM_NOTIFY: {
-        switch (((LPNMHDR)lParam)->code) {
-        case TCN_SELCHANGE:
-            onTabIndexChanged();
-            break;
-        case NM_CLICK:
-        case NM_RETURN: {
-            PNMLINK link = (PNMLINK)lParam;
-            if (link->hdr.idFrom == IDC_SYSLINK_HOME_PAGE)
-                ShellExecute(NULL, _T("open"), _T("http://open-key.org"), NULL, NULL, SW_SHOWNORMAL);
-            else if (link->hdr.idFrom == IDC_SYSLINK_FANPAGE)
-                ShellExecute(NULL, _T("open"), _T("https://www.facebook.com/OpenKeyVN"), NULL, NULL, SW_SHOWNORMAL);
-            else if (link->hdr.idFrom == IDC_SYSLINK_AUTHOR_EMAIL)
-                ShellExecute(NULL, _T("open"), _T("mailto:maivutuyen.91@gmail.com"), NULL, NULL, SW_SHOWNORMAL);
-            break;
-        }
-        }
-        break;
-    }
     }
 
     return FALSE;
 }
 
-INT_PTR MainControlDialog::tabPageEventProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-    if (uMsg == WM_INITDIALOG) {
-#ifdef _WIN64
-        SetWindowLongPtr(hDlg, GWLP_USERDATA, lParam);
-#else
-        SetWindowLong(hDlg, GWL_USERDATA, lParam);
-#endif
-        return TRUE;
-    }
-    else if (uMsg == WM_ERASEBKGND) {
-        return TRUE;
-    }
-    else if ((uMsg == WM_CTLCOLORSTATIC || uMsg == WM_CTLCOLORBTN) && IsThemeActive()) {
-        SetBkMode((HDC)wParam, TRANSPARENT);
-        return (LRESULT)GetStockObject(COLOR_WINDOW + 1);
-    }
-    else if (uMsg == WM_PAINT && IsThemeActive()) {
-        PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hDlg, &ps);
-
-        // All painting occurs here, between BeginPaint and EndPaint.
-        FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_WINDOW + 1));
-
-        EndPaint(hDlg, &ps);
-
-        return 0;
-    }
-
-#ifdef _WIN64
-    LONG_PTR attr = GetWindowLongPtr(hDlg, GWLP_USERDATA);
-#else
-    long attr = GetWindowLong(hDlg, GWL_USERDATA);
-#endif
-    if (attr != 0) {
-        return ((MainControlDialog*)attr)->eventProc(hDlg, uMsg, wParam, lParam);
-    }
-    return FALSE;
+static void setChecked(HWND control, bool checked) {
+    SendMessage(control, BM_SETCHECK, checked ? BST_CHECKED : BST_UNCHECKED, 0);
 }
 
 void MainControlDialog::fillData() {
     SendMessage(comboBoxInputType, CB_SETCURSEL, vInputType, 0);
     SendMessage(comboBoxTableCode, CB_SETCURSEL, vCodeTable, 0);
 
-    SendMessage(checkCtrl, BM_SETCHECK, HAS_CONTROL(vSwitchKeyStatus) ? 1 : 0, 0);
-    SendMessage(checkAlt, BM_SETCHECK, HAS_OPTION(vSwitchKeyStatus) ? 1 : 0, 0);
-    SendMessage(checkWin, BM_SETCHECK, HAS_COMMAND(vSwitchKeyStatus) ? 1 : 0, 0);
-    SendMessage(checkShift, BM_SETCHECK, HAS_SHIFT(vSwitchKeyStatus) ? 1 : 0, 0);
+    setChecked(checkCtrl, HAS_CONTROL(vSwitchKeyStatus));
+    setChecked(checkAlt, HAS_OPTION(vSwitchKeyStatus));
+    setChecked(checkWin, HAS_COMMAND(vSwitchKeyStatus));
+    setChecked(checkShift, HAS_SHIFT(vSwitchKeyStatus));
     setSwitchKeyText(textSwitchKey, (vSwitchKeyStatus >> 24) & 0xFF);
-    SendMessage(checkBeep, BM_SETCHECK, HAS_BEEP(vSwitchKeyStatus) ? 1 : 0, 0);
+    setChecked(checkBeep, HAS_BEEP(vSwitchKeyStatus));
 
-    SendMessage(checkVietnamese, BM_SETCHECK, !vChineseMode && vLanguage, 0);
-    SendMessage(checkEnglish, BM_SETCHECK, !vChineseMode && !vLanguage, 0);
-    SendMessage(checkChinese, BM_SETCHECK, vChineseMode, 0);
+    setChecked(checkVietnamese, !vChineseMode && vLanguage);
+    setChecked(checkEnglish, !vChineseMode && !vLanguage);
+    setChecked(checkChinese, vChineseMode);
 
-    SendMessage(checkModernOrthorgraphy, BM_SETCHECK, vUseModernOrthography ? 1 : 0, 0);
-    SendMessage(checkFixRecommendBrowser, BM_SETCHECK, vFixRecommendBrowser ? 1 : 0, 0);
-    SendMessage(checkShowOnStartup, BM_SETCHECK, vShowOnStartUp ? 1 : 0, 0);
-    SendMessage(checkRunWithWindows, BM_SETCHECK, vRunWithWindows ? 1 : 0, 0);
-    SendMessage(checkSpelling, BM_SETCHECK, vCheckSpelling ? 1 : 0, 0);
-    SendMessage(checkRestoreIfWrongSpelling, BM_SETCHECK, vRestoreIfWrongSpelling ? 1 : 0, 0);
-    SendMessage(checkModernIcon, BM_SETCHECK, vUseGrayIcon ? 1 : 0, 0);
-    SendMessage(checkAllowZWJF, BM_SETCHECK, vAllowConsonantZFWJ ? 1 : 0, 0);
-    SendMessage(checkTempOffSpelling, BM_SETCHECK, vTempOffSpelling ? 1 : 0, 0);
-    SendMessage(checkQuickStartConsonant, BM_SETCHECK, vQuickStartConsonant ? 1 : 0, 0);
-    SendMessage(checkQuickEndConsonant, BM_SETCHECK, vQuickEndConsonant ? 1 : 0, 0);
-    SendMessage(checkRememberTableCode, BM_SETCHECK, vRememberCode ? 1 : 0, 0);
-    SendMessage(checkAllowOtherLanguages, BM_SETCHECK, vOtherLanguage ? 1 : 0, 0);
-    SendMessage(checkTempOffOmnikey, BM_SETCHECK, vTempOffOmnikey ? 1 : 0, 0);
+    setChecked(checkModernOrthorgraphy, vUseModernOrthography);
+    setChecked(checkFixRecommendBrowser, vFixRecommendBrowser);
+    setChecked(checkShowOnStartup, vShowOnStartUp);
+    setChecked(checkRunWithWindows, vRunWithWindows);
+    setChecked(checkSpelling, vCheckSpelling);
+    setChecked(checkRestoreIfWrongSpelling, vRestoreIfWrongSpelling);
+    setChecked(checkModernIcon, vUseGrayIcon);
+    setChecked(checkAllowZWJF, vAllowConsonantZFWJ);
+    setChecked(checkTempOffSpelling, vTempOffSpelling);
+    setChecked(checkQuickStartConsonant, vQuickStartConsonant);
+    setChecked(checkQuickEndConsonant, vQuickEndConsonant);
+    setChecked(checkRememberTableCode, vRememberCode);
+    setChecked(checkAllowOtherLanguages, vOtherLanguage);
+    setChecked(checkTempOffOmnikey, vTempOffOmnikey);
 
-    SendMessage(checkSmartSwitchKey, BM_SETCHECK, vUseSmartSwitchKey ? 1 : 0, 0);
-    SendMessage(checkCapsFirstChar, BM_SETCHECK, vUpperCaseFirstChar ? 1 : 0, 0);
-    SendMessage(checkQuickTelex, BM_SETCHECK, vQuickTelex ? 1 : 0, 0);
-    SendMessage(checkUseMacro, BM_SETCHECK, vUseMacro ? 1 : 0, 0);
-    SendMessage(checkUseMacroInEnglish, BM_SETCHECK, vUseMacroInEnglishMode ? 1 : 0, 0);
+    setChecked(checkSmartSwitchKey, vUseSmartSwitchKey);
+    setChecked(checkCapsFirstChar, vUpperCaseFirstChar);
+    setChecked(checkQuickTelex, vQuickTelex);
+    setChecked(checkUseMacro, vUseMacro);
+    setChecked(checkUseMacroInEnglish, vUseMacroInEnglishMode);
 
-    SendMessage(checkMacroAutoCaps, BM_SETCHECK, vAutoCapsMacro ? 1 : 0, 0);
-    SendMessage(checkSupportMetroApp, BM_SETCHECK, vSupportMetroApp ? 1 : 0, 0);
-    SendMessage(checkCreateDesktopShortcut, BM_SETCHECK, vCreateDesktopShortcut ? 1 : 0, 0);
-    SendMessage(checkRunAsAdmin, BM_SETCHECK, vRunAsAdmin ? 1 : 0, 0);
-    SendMessage(checkCheckNewVersion, BM_SETCHECK, vCheckNewVersion ? 1 : 0, 0);
-    SendMessage(checkUseClipboard, BM_SETCHECK, vSendKeyStepByStep ? 0 : 1, 0);
-    SendMessage(checkFixChromium, BM_SETCHECK, vFixChromiumBrowser ? 1 : 0, 0);
+    setChecked(checkMacroAutoCaps, vAutoCapsMacro);
+    setChecked(checkSupportMetroApp, vSupportMetroApp);
+    setChecked(checkCreateDesktopShortcut, vCreateDesktopShortcut);
+    setChecked(checkRunAsAdmin, vRunAsAdmin);
+    setChecked(checkCheckNewVersion, vCheckNewVersion);
+    setChecked(checkUseClipboard, !vSendKeyStepByStep);
+    setChecked(checkFixChromium, vFixChromiumBrowser);
 
     EnableWindow(checkRestoreIfWrongSpelling, vCheckSpelling);
     EnableWindow(checkAllowZWJF, vCheckSpelling);
     EnableWindow(checkTempOffSpelling, vCheckSpelling);
     EnableWindow(checkFixChromium, vFixRecommendBrowser);
-
-    //tab info
-    wchar_t buffer[256];
-    wsprintfW(buffer, _T("Phiên bản %s cho Windows - Ngày cập nhật: %s"), OmnikeyHelper::getVersionString().c_str(), _T(__DATE__));
-    SendDlgItemMessage(hTabPage4, IDC_STATIC_APP_VERSION_INFO, WM_SETTEXT, 0, LPARAM(buffer));
 }
 
 void MainControlDialog::setSwitchKey(const unsigned short& code) {
@@ -433,6 +485,7 @@ void MainControlDialog::onCheckboxClicked(const HWND& hWnd) {
         vSwitchKeyStatus |= val << 15;
         APP_SET_DATA(vSwitchKeyStatus, vSwitchKeyStatus);
     }
+    //language segments are plain radio buttons; selectInputMode refreshes them through fillData
     else if (hWnd == checkVietnamese) {
         AppDelegate::getInstance()->selectInputMode(1);
     }
@@ -586,14 +639,6 @@ void MainControlDialog::setSwitchKeyText(const HWND& hWnd, const UINT16& keyCode
         Uint16 key[] = { keyCode, 0 };
         SetWindowText(hWnd, (LPCWSTR)&key);
     }
-}
-
-void MainControlDialog::onTabIndexChanged() {
-    int index = TabCtrl_GetCurSel(hTab);
-    ShowWindow(hTabPage1, (index == 0) ? SW_SHOW : SW_HIDE);
-    ShowWindow(hTabPage2, (index == 1) ? SW_SHOW : SW_HIDE);
-    ShowWindow(hTabPage3, (index == 2) ? SW_SHOW : SW_HIDE);
-    ShowWindow(hTabPage4, (index == 3) ? SW_SHOW : SW_HIDE);
 }
 
 void MainControlDialog::onUpdateButton() {
