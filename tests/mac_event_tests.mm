@@ -81,7 +81,17 @@ static void captureEvent(CGEventTapProxy proxy, CGEventRef event) {
 static CFArrayRef windowList(CGWindowListOption option, CGWindowID window) {
     return (CFArrayRef)CFRetain((__bridge CFArrayRef)testWindows);
 }
+// Roles from the focused element up to its ancestors; elements are told apart by a fake PID.
+static NSArray<NSString *> *testFocusChain=@[];
 static AXError focusedElement(AXUIElementRef element, CFStringRef attribute, CFTypeRef *value) {
+    if (CFEqual(attribute, kAXRoleAttribute) || CFEqual(attribute, kAXParentAttribute)) {
+        pid_t level=0; AXUIElementGetPid(element, &level); level-=7000;
+        if (level < 0 || level >= (pid_t)testFocusChain.count) return kAXErrorNoValue;
+        if (CFEqual(attribute, kAXRoleAttribute)) { *value = CFRetain((__bridge CFTypeRef)testFocusChain[level]); return kAXErrorSuccess; }
+        if (level+1 >= (pid_t)testFocusChain.count) return kAXErrorNoValue;
+        *value = AXUIElementCreateApplication(7000+level+1);
+        return kAXErrorSuccess;
+    }
     AXUIElementGetPid(element, &testQueriedPID);
     if (testFocusError != kAXErrorSuccess) return testFocusError;
     *value = AXUIElementCreateApplication(testQueriedPID);
@@ -323,6 +333,24 @@ int main() { @autoreleasepool {
     // The focus query times out while Spotlight searches for "đa".
     expect(typeInSpotlight("ddax", 3)==u"đã", "ddax becomes đã while Spotlight is busy");
     testWindows=@[]; testFocusError=kAXErrorCannotComplete;
+
+    // The Chromium fix sends Shift+Left only in the address bar (a text field
+    // in the toolbar). In a page it would leave the field: Google Sheets
+    // selects the cell on the left and the next key erases it.
+    auto addressBar=[&](NSArray<NSString *> *chain, AXError error) {
+        testFocusChain=chain; testFocusError=error; _addressBarFocused=-1;
+        return (bool)isAddressBarFocused(7000);
+    };
+    expect(addressBar(@[@"AXTextField",@"AXGroup",@"AXToolbar",@"AXGroup",@"AXWindow"], kAXErrorSuccess), "address bar is a text field in the toolbar");
+    expect(!addressBar(@[@"AXTextField",@"AXGroup",@"AXGroup",@"AXWebArea",@"AXToolbar"], kAXErrorSuccess), "text field in a page is not the address bar");
+    expect(!addressBar(@[@"AXWebArea",@"AXToolbar"], kAXErrorSuccess), "page focus is not the address bar");
+    expect(!addressBar(@[@"AXTextField"], kAXErrorSuccess), "text field without a toolbar is not the address bar");
+    expect(!addressBar(@[@"AXTextField",@"AXGroup",@"AXToolbar"], kAXErrorCannotComplete), "failed focus query keeps the safe method");
+    testFocusChain=@[@"AXTextField",@"AXToolbar"]; testFocusError=kAXErrorSuccess;
+    expect(!isAddressBarFocused(7000), "answer is kept for the current word");
+    RequestNewSession();
+    expect(isAddressBarFocused(7000), "a click asks again");
+    testFocusChain=@[]; testFocusError=kAXErrorCannotComplete; _addressBarFocused=-1;
 
     sent.clear(); vCodeTable=2; _syncKey.clear(); backspaceCreates=0;
     SendBackspace(); SendBackspace();

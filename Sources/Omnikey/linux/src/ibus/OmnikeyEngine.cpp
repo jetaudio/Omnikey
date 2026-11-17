@@ -171,7 +171,17 @@ static std::u32string encodeChar(Uint32 data) {
 static std::vector<std::u32string> engineOutput() {
     std::vector<std::u32string> chars;
     if (pData->code == vReplaceMaro) {
-        for (Uint32 data : pData->macroData) chars.push_back(encodeChar(data));
+        for (Uint32 data : pData->macroData) {
+            std::u32string ch = encodeChar(data);
+            // Macro content is stored as UTF-16 units: join a surrogate pair
+            // (an emoji) into the one code point it stands for.
+            if (ch.size() == 1 && ch[0] >= 0xDC00 && ch[0] <= 0xDFFF && !chars.empty() &&
+                chars.back().size() == 1 && chars.back()[0] >= 0xD800 && chars.back()[0] <= 0xDBFF) {
+                chars.back()[0] = 0x10000 + ((chars.back()[0] - 0xD800) << 10) + (ch[0] - 0xDC00);
+                continue;
+            }
+            chars.push_back(ch);
+        }
     } else {
         for (int i = pData->newCharCount - 1; i >= 0; i--) chars.push_back(encodeChar(pData->charData[i]));
     }
@@ -259,6 +269,7 @@ static bool textBeforeCursor(OmnikeyEngine* self, std::u32string& before, bool& 
     guint start = MIN(cursor, anchor);
     before.assign((const char32_t*)chars, MIN((glong)start, length));
     g_free(chars);
+    g_object_unref(text); // ibus_engine_get_surrounding_text() returns a new reference
     selection = cursor != anchor;
     return true;
 }
@@ -550,7 +561,21 @@ static gboolean processPreedit(OmnikeyEngine* self, Uint16 key, guint keyval, gu
         else passKey = true;
     } else {
         size_t remove = std::min<size_t>(pData->backspaceCount, word.size());
+        // A macro name can include punctuation ("->"), which was committed as
+        // it was typed: that part is deleted from the application's text.
+        size_t committed = pData->code == vReplaceMaro ? pData->backspaceCount - remove : 0;
         word.resize(word.size() - remove);
+        if (committed > 0) {
+            IBusEngine* engine = (IBusEngine*)self;
+            if (engine->client_capabilities & IBUS_CAP_SURROUNDING_TEXT) {
+                ibus_engine_delete_surrounding_text(engine, -(gint)committed, (guint)committed);
+            } else {
+                for (size_t i = 0; i < committed; i++) {
+                    ibus_engine_forward_key_event(engine, IBUS_KEY_BackSpace, EVDEV_BACKSPACE, 0);
+                    ibus_engine_forward_key_event(engine, IBUS_KEY_BackSpace, EVDEV_BACKSPACE, IBUS_RELEASE_MASK);
+                }
+            }
+        }
         for (auto& ch : engineOutput()) word.push_back(ch);
         if (pData->code != vWillProcess) { // restore or macro: the typed key follows
             if (printable) word.push_back(std::u32string(1, typed));
@@ -744,6 +769,9 @@ static gboolean omnikey_engine_process_key_event(IBusEngine* engine, guint keyva
 static void omnikey_engine_focus_in(IBusEngine* engine) {
     OmnikeyEngine* self = (OmnikeyEngine*)engine;
     resetWord(self);
+    // A modifier whose release went elsewhere (Alt+Tab) must not count in the next tap.
+    self->tapMask = 0;
+    self->tapValid = TRUE;
     ibus_engine_register_properties(engine, self->props);
     updateModeProperty(self);
     IBUS_ENGINE_CLASS(omnikey_engine_parent_class)->focus_in(engine);
@@ -754,6 +782,8 @@ static void omnikey_engine_focus_out(IBusEngine* engine) {
     cancelPending(self);
     flushWord(self);
     resetWord(self);
+    self->tapMask = 0;
+    self->tapValid = TRUE;
     IBUS_ENGINE_CLASS(omnikey_engine_parent_class)->focus_out(engine);
 }
 

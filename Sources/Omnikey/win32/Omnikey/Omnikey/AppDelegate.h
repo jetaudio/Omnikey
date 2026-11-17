@@ -38,7 +38,7 @@ public: //event
 
 	void onToggleVietnamese();
 	void selectInputMode(int mode); // 0: English, 1: Vietnamese, 2: Pinyin
-	void cycleInputMode() { selectInputMode(vChineseMode ? 1 : (vLanguage ? 0 : 2)); }
+	void cycleInputMode();
 	void onToggleCheckSpelling();
 	void onToggleUseSmartSwitchKey();
 	void onToggleUseMacro();

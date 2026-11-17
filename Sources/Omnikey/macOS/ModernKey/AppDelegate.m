@@ -451,6 +451,7 @@ static void OKSelectMenuItemWithTag(NSArray<NSMenuItem *> *items, NSInteger tag)
     // Menu item tags are the stored input type and code table indexes; the
     // menus do not exist yet while Accessibility permission is pending.
     NSInteger intInputType = [defaults integerForKey:@"InputType"];
+    if (intInputType < 0 || intInputType > 3) intInputType = 0; // the engine indexes its tables with these
     if (mnuTelex) OKSelectMenuItemWithTag(@[mnuTelex, mnuVNI, mnuSimpleTelex1, mnuSimpleTelex2], intInputType);
     vInputType = (int)intInputType;
     
@@ -460,6 +461,7 @@ static void OKSelectMenuItemWithTag(NSArray<NSMenuItem *> *items, NSInteger tag)
         vSwitchKeyStatus = DEFAULT_SWITCH_STATUS;
     
     NSInteger intCode = [defaults integerForKey:@"CodeTable"];
+    if (intCode < 0 || intCode > 4) intCode = 0;
     if (mnuUnicode) OKSelectMenuItemWithTag(@[mnuUnicode, mnuTCVN, mnuVNIWindows, mnuUnicodeComposite, mnuVietnameseLocaleCP1258], intCode);
     vCodeTable = (int)intCode;
     
@@ -525,6 +527,7 @@ static void OKSelectMenuItemWithTag(NSArray<NSMenuItem *> *items, NSInteger tag)
 }
 
 - (void)onCodeTableChanged:(int)index {
+    if (index < 0 || index > 4) index = 0; // may come from remembered per-app data
     [[NSUserDefaults standardUserDefaults] setInteger:index forKey:@"CodeTable"];
     vCodeTable = index;
     [self fillData];

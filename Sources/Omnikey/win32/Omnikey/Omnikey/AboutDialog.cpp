@@ -99,13 +99,9 @@ void AboutDialog::onUpdateButton() {
 			MB_ICONEXCLAMATION | MB_YESNO
 		);
 		if (msgboxID == IDYES) {
-			//Call OmnikeyUpdate
-			WCHAR path[MAX_PATH];
-			GetCurrentDirectory(MAX_PATH, path);
-			wsprintf(path, TEXT("%s\\OmnikeyUpdate.exe"), path);
-			ShellExecute(0, L"", path, 0, 0, SW_SHOWNORMAL);
-
-			AppDelegate::getInstance()->onOmnikeyExit();
+			// Exit only when the updater really started.
+			if (OmnikeyHelper::launchUpdater()) AppDelegate::getInstance()->onOmnikeyExit();
+			else MessageBoxW(hDlg, L"Không mở được trình cập nhật. Hãy tải gói Windows từ trang release.", L"Omnikey Update", MB_OK | MB_ICONERROR);
 		}
 		
 	} else {

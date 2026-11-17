@@ -48,6 +48,13 @@ def apply(script, directory, target):
                           creationflags=subprocess.CREATE_NO_WINDOW).returncode
 
 
+def write_checksum(install, digest=None):
+    """Write the release checksum list the updater downloads beside the package."""
+    digest = digest or hashlib.sha256((install / '_OmnikeyUpdate.zip').read_bytes()).hexdigest()
+    (install / '_OmnikeyUpdate.sha256').write_text(
+        '0' * 64 + '  Omnikey-9.9.9-Windows-x64.zip\n' + digest + '  Omnikey-9.9.9-Windows.zip\n', encoding='ascii')
+
+
 def main(package):
     package = package.resolve()
     base = (ROOT / 'dist/update-tests').resolve()
@@ -67,6 +74,7 @@ def main(package):
                 for name in ('Omnikey64.exe', 'Omnikey32.exe'):
                     (install / name).write_bytes(b'previous-' + name.encode())
                 shutil.copy2(package, install / '_OmnikeyUpdate.zip')
+                write_checksum(install)
                 assert apply(script, install, target) == 0, f'Update failed for {arch}'
                 assert (install / target).read_bytes() == archive.read(target), 'Wrong executable installed'
                 other = 'Omnikey32.exe' if arch == 'x64' else 'Omnikey64.exe'
@@ -79,10 +87,12 @@ def main(package):
             install.mkdir()
             (install / 'OpenKey64.exe').write_bytes(b'previous-OpenKey64.exe')
             shutil.copy2(package, install / '_OmnikeyUpdate.zip')
+            write_checksum(install)
             assert apply(script, install, 'OpenKey64.exe') == 0, 'Update failed for a legacy OpenKey install'
             assert (install / 'OpenKey64.exe').read_bytes() == archive.read('Omnikey64.exe'), 'Legacy EXE not updated'
             assert not (install / 'Omnikey64.exe').exists(), 'Legacy install got a second EXE'
-            for label, valid in [('missing-data', True), ('corrupt-zip', False), ('locked-exe', None)]:
+            for label, valid in [('missing-data', True), ('corrupt-zip', False), ('locked-exe', None),
+                                 ('wrong-checksum', 'sum'), ('no-checksum', 'none')]:
                 install = temporary / label
                 install.mkdir()
                 target = install / 'Omnikey64.exe'
@@ -93,16 +103,20 @@ def main(package):
                         incomplete.writestr('Omnikey64.exe', b'incomplete-new-application')
                 elif valid is False:
                     (install / '_OmnikeyUpdate.zip').write_bytes(b'not-a-zip')
+                elif valid in ('sum', 'none'):
+                    shutil.copy2(package, install / '_OmnikeyUpdate.zip')
                 else:
                     shutil.copy2(package, install / '_OmnikeyUpdate.zip')
                     locked = kernel.CreateFileW(str(target), 0x80000000, 1, None, 3, 0x80, None)
                     assert locked != ctypes.c_void_p(-1).value, 'Could not lock test executable'
+                if valid == 'sum': write_checksum(install, 'f' * 64)
+                elif valid != 'none': write_checksum(install)
                 try:
                     assert apply(script, install, 'Omnikey64.exe') != 0, f'{label} should fail'
                     assert target.read_bytes() == b'keep-old-application', 'Failed update removed the previous application'
                 finally:
                     if locked is not None: kernel.CloseHandle(locked)
-        print('Windows update package tests passed (x64/x86, repeat, legacy OpenKey name, missing data, corrupt ZIP, locked EXE)')
+        print('Windows update package tests passed (x64/x86, repeat, legacy OpenKey name, missing data, corrupt ZIP, locked EXE, wrong and missing checksum)')
     finally:
         # The fully resolved cleanup target was checked above, inside the workspace.
         shutil.rmtree(temporary)

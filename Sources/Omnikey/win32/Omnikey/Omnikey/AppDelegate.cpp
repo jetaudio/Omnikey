@@ -173,6 +173,7 @@ void AppDelegate::onDefaultConfig() {
 	APP_SET_DATA(vInputType, 0);
 	vFreeMark = 0;
 	APP_SET_DATA(vCodeTable, 0);
+	onTableCodeChange();
 	APP_SET_DATA(vCheckSpelling, 1);
 	APP_SET_DATA(vUseModernOrthography, 0);
 	APP_SET_DATA(vQuickTelex, 0);
@@ -218,6 +219,15 @@ void AppDelegate::onToggleVietnamese() {
 		setAppInputMethodStatus(exe, vLanguage | (vCodeTable << 1));
 		saveSmartSwitchKeyData();
 	}
+}
+
+// The hot key cycles V -> E -> Pinyin -> V. While Pinyin is unavailable it is
+// skipped: selecting it would only show a message from inside the keyboard
+// hook and leave the hot key stuck in English.
+void AppDelegate::cycleInputMode() {
+	if (vChineseMode) selectInputMode(1);
+	else if (vLanguage) selectInputMode(0);
+	else selectInputMode(ChineseInput::ready() ? 2 : 1);
 }
 
 void AppDelegate::selectInputMode(int mode) {
@@ -296,7 +306,10 @@ void AppDelegate::onInputType(const int & type) {
 }
 
 void AppDelegate::onTableCode(const int & code) {
-	APP_SET_DATA(vCodeTable, code);
+	// The index may come from remembered per-app data; macros are stored
+	// encoded for the current table.
+	APP_SET_DATA(vCodeTable, (code < 0 || code > 4) ? 0 : code);
+	onTableCodeChange();
 	if (mainDialog) {
 		mainDialog->fillData();
 	}

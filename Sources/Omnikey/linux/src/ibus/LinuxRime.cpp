@@ -68,7 +68,13 @@ bool LinuxRime::initialize(const std::string& shared, const std::string& user) {
     traits.app_name = "rime.omnikey";
     traits.min_log_level = 2;
     traits.log_dir = "";
-    rime->setup(&traits);
+    // RimeSetup() starts glog, which aborts the process when started twice
+    // (a retry after an earlier failed start).
+    static bool setupDone = false;
+    if (!setupDone) {
+        rime->setup(&traits);
+        setupDone = true;
+    }
     rime->initialize(&traits);
     initialized_ = true;
     if (rime->start_maintenance(False)) rime->join_maintenance_thread();

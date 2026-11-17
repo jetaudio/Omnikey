@@ -445,6 +445,7 @@ void MainControlDialog::onComboBoxSelected(const HWND& hCombobox, const int& com
     }
     else if (hCombobox == comboBoxTableCode) {
         APP_SET_DATA(vCodeTable, (int)SendMessage(hCombobox, CB_GETCURSEL, 0, 0));
+        onTableCodeChange(); // macros are stored encoded for the current table
         if (vRememberCode) {
             setAppInputMethodStatus(OmnikeyHelper::getFrontMostAppExecuteName(), vLanguage | (vCodeTable << 1));
             saveSmartSwitchKeyData();
@@ -678,8 +679,13 @@ void MainControlDialog::requestRestartAsAdmin() {
             MB_ICONEXCLAMATION | MB_YESNO
         );
         if (msgboxID == IDYES) {
-            PostQuitMessage(0);
-            ShellExecute(0, L"runas", OmnikeyHelper::getFullPath().c_str(), 0, 0, SW_SHOWNORMAL);
+            // Quit only once the elevated instance started; cancelling UAC keeps this one.
+            if ((INT_PTR)ShellExecute(0, L"runas", OmnikeyHelper::getFullPath().c_str(), 0, 0, SW_SHOWNORMAL) > 32)
+                PostQuitMessage(0);
+            else
+                OmnikeyHelper::registerRunOnStartup(vRunWithWindows);
+        } else {
+            OmnikeyHelper::registerRunOnStartup(vRunWithWindows);
         }
     }
     else {

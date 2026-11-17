@@ -49,7 +49,7 @@ static void convert(const string& str, vector<Uint32>& outData) {
             for (int j = 0; j < it->second.size(); j++) {
                 if ((Uint16)t == it->second[j]) {
                     kSign = 0;
-                    outData.push_back(_codeTable[vCodeTable][it->first][k] | CHAR_CODE_MASK);
+                    outData.push_back(CURRENT_CODE_TABLE[it->first][k] | CHAR_CODE_MASK);
                     break;
                 }//end if
                 k++;
@@ -89,12 +89,16 @@ void initMacroMap(const Byte* pData, const int& size) {
     Uint8 macroTextSize;
     Uint16 macroContentSize;
     for (int i = 0; i < macroCount; i++) {
+        //stop at truncated or damaged data instead of reading past it
+        if (cursor + 1 > (Uint32)size) break;
         macroTextSize = pData[cursor++];
+        if (cursor + macroTextSize + 2 > (Uint32)size) break;
         string macroText((char*)pData + cursor, macroTextSize);
         cursor += macroTextSize;
         
         memcpy(&macroContentSize, pData + cursor, 2);
         cursor+=2;
+        if (cursor + macroContentSize > (Uint32)size) break;
         string macroContent((char*)pData + cursor, macroContentSize);
         cursor += macroContentSize;
         
@@ -138,7 +142,7 @@ static bool modifyCaseUnicode(Uint32& code, const bool& isUpperCase=true) {
     }
     
     //for unicode character
-    for (map<Uint32, vector<Uint16>>::iterator it = _codeTable[vCodeTable].begin(); it != _codeTable[vCodeTable].end(); ++it) {
+    for (map<Uint32, vector<Uint16>>::iterator it = CURRENT_CODE_TABLE.begin(); it != CURRENT_CODE_TABLE.end(); ++it) {
         for (_kMacro = 0; _kMacro < it->second.size(); _kMacro++) {
             if ((Uint16)code == it->second[_kMacro]) {
                 if (_kMacro % 2 == 0 && !isUpperCase)
@@ -213,8 +217,13 @@ void getAllMacro(vector<vector<Uint32>>& keys, vector<string>& macroTexts, vecto
 }
 
 bool addMacro(const string& macroText, const string& macroContent) {
+    //the saved format stores the sizes in one and two bytes
+    if (macroText.size() > 0xFF || macroContent.size() > 0xFFFF)
+        return false;
     vector<Uint32> key;
     convert(macroText, key);
+    if (key.empty()) //no name, or a name that is not valid UTF-8
+        return false;
     if (macroMap.find(key) == macroMap.end()) { //add new macro
         MacroData data;
         data.macroText = macroText;
@@ -246,7 +255,11 @@ void onTableCodeChange() {
 
 void saveToFile(const string& path) {
     ofstream myfile;
+#ifdef _WIN32
+    myfile.open(utf8ToWideString(path).c_str()); //a narrow path would be read as ANSI
+#else
     myfile.open(path.c_str());
+#endif
     myfile << ";Compatible Omnikey Macro Data file for UniKey*** version=1 ***\n";
     for (std::map<vector<Uint32>, MacroData>::iterator it = macroMap.begin(); it != macroMap.end(); ++it) {
         myfile <<it->second.macroText << ":" << it->second.macroContent<<"\n";
@@ -255,7 +268,11 @@ void saveToFile(const string& path) {
 }
 
 void readFromFile(const string& path, const bool& append) {
+#ifdef _WIN32
+    ifstream myfile(utf8ToWideString(path).c_str()); //a narrow path would be read as ANSI
+#else
     ifstream myfile(path.c_str());
+#endif
     string line;
     int k = 0;
     size_t pos = 0;

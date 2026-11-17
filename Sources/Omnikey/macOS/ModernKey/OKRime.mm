@@ -162,8 +162,9 @@ static BOOL hasComposition(const RimeContext &context) {
         NSMutableArray *candidates = [NSMutableArray array], *comments = [NSMutableArray array];
         for (int i = 0; i < context.menu.num_candidates; i++) {
             RimeCandidate candidate = context.menu.candidates[i];
-            [candidates addObject:candidate.text ? [NSString stringWithUTF8String:candidate.text] : @""];
-            [comments addObject:candidate.comment ? [NSString stringWithUTF8String:candidate.comment] : @""];
+            // stringWithUTF8String: is nil for malformed UTF-8, which an array cannot hold.
+            [candidates addObject:(candidate.text ? [NSString stringWithUTF8String:candidate.text] : nil) ?: @""];
+            [comments addObject:(candidate.comment ? [NSString stringWithUTF8String:candidate.comment] : nil) ?: @""];
         }
         result.candidates = candidates;
         result.comments = comments;
@@ -192,6 +193,8 @@ static BOOL hasComposition(const RimeContext &context) {
     if (flags & kCGEventFlagMaskAlternate) modifiers |= kRimeAltMask;
     // Shift+Delete removes the highlighted phrase from what Rime learned.
     int shift = (flags & kCGEventFlagMaskShift) ? kRimeShiftMask : 0;
+    // Command shortcuts (Cmd+Space, Cmd+Delete, Cmd+arrows) belong to the app and system.
+    if (flags & kCGEventFlagMaskCommand) return 0;
     switch (keyCode) {
         case kVK_Delete: *mask = modifiers | shift; return 0xff08;         // BackSpace
         case kVK_ForwardDelete: *mask = modifiers | shift; return 0xffff;  // Delete
@@ -209,7 +212,6 @@ static BOOL hasComposition(const RimeContext &context) {
         case kVK_Space: *mask = modifiers; return 0x20;
         default: break;
     }
-    if (flags & kCGEventFlagMaskCommand) return 0;
     UniChar characters[4];
     UniCharCount length = 0;
     CGEventKeyboardGetUnicodeString(event, 4, &length, characters);
