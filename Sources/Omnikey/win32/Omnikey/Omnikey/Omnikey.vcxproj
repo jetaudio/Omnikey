@@ -177,6 +177,7 @@
     <ClInclude Include="BaseDialog.h" />
     <ClInclude Include="ConvertToolDialog.h" />
     <ClInclude Include="MacroDialog.h" />
+    <ClInclude Include="FormUI.h" />
     <ClInclude Include="MainControlDialog.h" />
     <ClInclude Include="OmnikeyHelper.h" />
     <ClInclude Include="OmnikeyManager.h" />
@@ -199,6 +200,7 @@
     <ClCompile Include="ConvertToolDialog.cpp" />
     <ClCompile Include="MacroDialog.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="FormUI.cpp" />
     <ClCompile Include="MainControlDialog.cpp" />
     <ClCompile Include="Omnikey.cpp" />
     <ClCompile Include="OmnikeyHelper.cpp" />

@@ -54,6 +54,9 @@
     <ClInclude Include="BaseDialog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FormUI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="MainControlDialog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -111,6 +114,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="BaseDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FormUI.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="MainControlDialog.cpp">

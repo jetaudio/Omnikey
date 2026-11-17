@@ -66,11 +66,19 @@ static bool _switchHotKeyDown = false;
 static INPUT backspaceEvent[2];
 static INPUT keyEvent[2];
 
+// Windows silently removes a low-level hook that keeps exceeding LowLevelHooksTimeout,
+// e.g. during bursts of synthetic input from automation tools.
+#define HOOK_WATCHDOG_INTERVAL	3000
+static volatile DWORD _lastHookTick = 0;
+static UINT_PTR _hookWatchdogTimer = 0;
+
 LRESULT CALLBACK keyboardHookProcess(int nCode, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK mouseHookProcess(int nCode, WPARAM wParam, LPARAM lParam);
 VOID CALLBACK winEventProcCallback(HWINEVENTHOOK hWinEventHook, DWORD dwEvent, HWND hwnd, LONG idObject, LONG idChild, DWORD dwEventThread, DWORD dwmsEventTime);
 
 void OmnikeyFree() {
+	if (_hookWatchdogTimer) KillTimer(NULL, _hookWatchdogTimer);
+	_hookWatchdogTimer = 0;
 	UnhookWindowsHookEx(hMouseHook);
 	UnhookWindowsHookEx(hKeyboardHook);
 	UnhookWinEvent(hSystemEvent);
@@ -115,7 +123,19 @@ bool OmnikeyReinitHooks() {
     _switchHotKeyDown = false;
     _syncKey.clear();
     startNewSession();
+    _lastHookTick = GetTickCount();
     return true;
+}
+
+// Input reached the system but neither hook saw it: the hooks were removed, so reinstall them.
+static VOID CALLBACK hookWatchdogProc(HWND, UINT, UINT_PTR, DWORD) {
+	LASTINPUTINFO info = { sizeof(LASTINPUTINFO) };
+	if (!GetLastInputInfo(&info)) return;
+	if ((LONG)(info.dwTime - _lastHookTick) <= HOOK_WATCHDOG_INTERVAL) return;
+	OutputDebugString(_T("Omnikey: hooks stopped receiving input, reinstalling.\n"));
+	if (!OmnikeyReinitHooks()) return;
+	// Input into elevated windows never reaches our hooks; reinstall once per unseen burst only.
+	_lastHookTick = info.dwTime;
 }
 
 void OmnikeyInit() {
@@ -216,6 +236,8 @@ void OmnikeyInit() {
 	hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, keyboardHookProcess, hInstance, 0);
 	hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, mouseHookProcess, hInstance, 0);
 	hSystemEvent = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, NULL, winEventProcCallback, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+	_lastHookTick = GetTickCount();
+	_hookWatchdogTimer = SetTimer(NULL, 0, HOOK_WATCHDOG_INTERVAL, hookWatchdogProc);
 }
 
 void saveSmartSwitchKeyData() {
@@ -527,6 +549,7 @@ static bool UnsetModifierMask(const Uint16& vkCode) {
 LRESULT CALLBACK keyboardHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
 	if (nCode != HC_ACTION) return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
 	keyboardData = (KBDLLHOOKSTRUCT *)lParam;
+	_lastHookTick = GetTickCount();
 	//ignore my event
 	if (keyboardData->dwExtraInfo != 0) {
 		return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
@@ -538,17 +561,26 @@ LRESULT CALLBACK keyboardHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
 	}
 	
 	//ignore if IME pad is open when typing Japanese/Chinese...
-	HWND hWnd = GetForegroundWindow();
-	HWND hIME = ImmGetDefaultIMEWnd(hWnd);
-	LRESULT isImeON = SendMessage(hIME, WM_IME_CONTROL, IMC_GETOPENSTATUS, 0);
-	if (isImeON) {
+	//a plain SendMessage waits for a busy target app and makes Windows drop the hook
+	HWND hIME = ImmGetDefaultIMEWnd(GetForegroundWindow());
+	DWORD_PTR isImeON = 0;
+	if (hIME != NULL && SendMessageTimeout(hIME, WM_IME_CONTROL, IMC_GETOPENSTATUS, 0,
+			SMTO_ABORTIFHUNG | SMTO_BLOCK, 30, &isImeON) && isImeON) {
 		return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
 	}
-	
+
 	//check modifier key
 	if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
 		//LOG(L"Key down: %d\n", keyboardData->vkCode);
-		SetModifierMask((Uint16)keyboardData->vkCode);
+		if (!SetModifierMask((Uint16)keyboardData->vkCode)) {
+			// A modifier release can be missed (injected input, hook timeout, IME on);
+			// trust the real key state so a stuck Ctrl/Alt doesn't disable typing.
+			_flag &= ~(MASK_SHIFT | MASK_CONTROL | MASK_ALT | MASK_WIN);
+			if (GetAsyncKeyState(VK_SHIFT) < 0) _flag |= MASK_SHIFT;
+			if (GetAsyncKeyState(VK_CONTROL) < 0) _flag |= MASK_CONTROL;
+			if (GetAsyncKeyState(VK_MENU) < 0) _flag |= MASK_ALT;
+			if (GetAsyncKeyState(VK_LWIN) < 0 || GetAsyncKeyState(VK_RWIN) < 0) _flag |= MASK_WIN;
+		}
 	} else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
 		//LOG(L"Key up: %d\n", keyboardData->vkCode);
 		UnsetModifierMask((Uint16)keyboardData->vkCode);
@@ -696,6 +728,7 @@ LRESULT CALLBACK keyboardHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
 
 LRESULT CALLBACK mouseHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
 	if (nCode != HC_ACTION) return CallNextHookEx(hMouseHook, nCode, wParam, lParam);
+	_lastHookTick = GetTickCount();
 	switch (wParam) {
 	case WM_LBUTTONDOWN:
 	
