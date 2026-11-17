@@ -82,6 +82,7 @@ static void appendEncodedCharacter(vector<wchar_t>& out, Uint16 character) {
 string convertUtil(const string& sourceString) {
     if (convertToolFromCode >= 5 || convertToolToCode >= 5) return sourceString;
     wstring data = utf8ToWideString(sourceString);
+    if (data.empty()) return sourceString; //also text that is not valid UTF-8: keep it unchanged
     Uint16 t = 0, target;
     int j, k, p;
     vector<wchar_t> _temp;

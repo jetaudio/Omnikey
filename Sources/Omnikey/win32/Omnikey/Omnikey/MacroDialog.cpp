@@ -202,7 +202,7 @@ void MacroDialog::onImportMacroButton() {
 	ofn.lStructSize = sizeof(ofn);
 	ofn.hwndOwner = hDlg;
 	ofn.lpstrFile = szFile;
-	ofn.nMaxFile = sizeof(szFile);
+	ofn.nMaxFile = _countof(szFile); // in characters, not bytes
 	ofn.lpstrFilter = _T("Text file (*.txt)\0*.txt\0All (*.*)\0*.*\0");
 	ofn.nFilterIndex = 1;
 	ofn.lpstrFileTitle = NULL;
@@ -230,7 +230,7 @@ void MacroDialog::onExportMacrobutton() {
 	ofn.lStructSize = sizeof(ofn);
 	ofn.hwndOwner = hDlg;
 	ofn.lpstrFile = szFile;
-	ofn.nMaxFile = sizeof(szFile);
+	ofn.nMaxFile = _countof(szFile); // in characters, not bytes
 	ofn.lpstrFilter = _T("Text file (*.txt)\0*.txt\0");
 	ofn.lpstrFileTitle = (LPTSTR)_T("lpstrFile");
 	ofn.nFilterIndex = 1;

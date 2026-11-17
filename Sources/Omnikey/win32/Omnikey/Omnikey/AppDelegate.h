@@ -19,6 +19,8 @@ redistribute your new version, it MUST be open source.
 #include "MacroDialog.h"
 
 class BaseDialog;
+namespace ChineseInput { bool ready(); }
+
 class AppDelegate {
 private:
 	HINSTANCE hInstance;
@@ -38,7 +40,10 @@ public: //event
 
 	void onToggleVietnamese();
 	void selectInputMode(int mode); // 0: English, 1: Vietnamese, 2: Pinyin
-	void cycleInputMode() { selectInputMode(vChineseMode ? 1 : (vLanguage ? 0 : 2)); }
+	// The hot key cycles V -> E -> Pinyin -> V. While Pinyin is unavailable it
+	// is skipped: selecting it would only show a message from inside the
+	// keyboard hook and leave the hot key stuck in English.
+	void cycleInputMode() { selectInputMode(vChineseMode ? 1 : (vLanguage ? 0 : (ChineseInput::ready() ? 2 : 1))); }
 	void onToggleCheckSpelling();
 	void onToggleUseSmartSwitchKey();
 	void onToggleUseMacro();

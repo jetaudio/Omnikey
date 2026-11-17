@@ -93,7 +93,7 @@ bool OmnikeyManager::checkUpdate(string& newVersion) {
 	}
 
 	auto shiftVersion = [](DWORD version) {
-		return (version << 16) | (version & 0x00FF00) | (version >> 16 & 0xFF);
+		return ((version & 0xFF) << 16) | (version & 0x00FF00) | (version >> 16 & 0xFF);
 		};
 
 	string newVersionCodeStr = data.substr(posBegin, posEnd - posBegin);

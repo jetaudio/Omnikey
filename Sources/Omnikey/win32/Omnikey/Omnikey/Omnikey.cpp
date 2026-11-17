@@ -146,6 +146,9 @@ void OmnikeyInit() {
 	APP_GET_DATA(vInputType, 0);
 	vFreeMark = 0;
 	APP_GET_DATA(vCodeTable, 0);
+	// The engine indexes its tables with these values.
+	if (vInputType < 0 || vInputType > 3) vInputType = 0;
+	if (vCodeTable < 0 || vCodeTable > 4) vCodeTable = 0;
 	APP_GET_DATA(vCheckSpelling, 1);
 	APP_GET_DATA(vUseModernOrthography, 0);
 	APP_GET_DATA(vQuickTelex, 0);
@@ -336,8 +339,9 @@ static void SendKeyCode(Uint32 data) {
 }
 
 static inline void SendMetroAppBackspace() {
-	SendMessage(HWND_BROADCAST, WM_CHAR, VK_BACK, 0L);
-	SendMessage(HWND_BROADCAST, WM_CHAR, VK_BACK, 0L);
+	// A hung window must not block the caller (this also runs from the keyboard hook).
+	SendMessageTimeout(HWND_BROADCAST, WM_CHAR, VK_BACK, 0L, SMTO_ABORTIFHUNG, 20, nullptr);
+	SendMessageTimeout(HWND_BROADCAST, WM_CHAR, VK_BACK, 0L, SMTO_ABORTIFHUNG, 20, nullptr);
 }
 
 static void SendBackspace() {
@@ -650,7 +654,7 @@ LRESULT CALLBACK keyboardHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
 
 			if (pData->code == vReplaceMaro) { //handle macro in english mode
 				handleMacro();
-				return NULL;
+				return -1; //consume event: handleMacro already sent this key
 			}
 		}
 		return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
@@ -770,7 +774,7 @@ VOID CALLBACK winEventProcCallback(HWINEVENTHOOK hWinEventHook, DWORD dwEvent, H
 		vTempOffEngine(false);
 		if (vUseSmartSwitchKey && (_languageTemp & 0x01) != vLanguage) {
 			if (_languageTemp != -1) {
-				vLanguage = _languageTemp;
+				vLanguage = _languageTemp & 0x01; //the higher bits hold the code table
 				AppDelegate::getInstance()->onInputMethodChangedFromHotKey();
 			} else {
 				saveSmartSwitchKeyData();

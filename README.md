@@ -41,10 +41,10 @@ Fork bổ sung bản Linux (IBus) mới, chế độ gõ tiếng Trung, giao di�
   - Vẫn có chế độ gạch chân từ đang gõ cho ai thích kiểu ổn định truyền thống.
   - Tự xử lý ô có gợi ý tự hoàn thành (thanh địa chỉ trình duyệt) và nhận biết khi bạn click sang chỗ khác.
   - App cài đặt GTK 4/libadwaita theo phong cách Ubuntu mới nhất; đổi cài đặt là có hiệu lực ngay.
-  - Phím chuyển Việt/Anh: Ctrl+Shift (mặc định), Ctrl+Space hoặc Alt+Z. Chữ **V/E** hiện trên thanh trạng thái.
-- **Gõ tiếng Trung (macOS và Windows):** thêm chế độ thứ ba, **中**, để gõ Pinyin giản thể.
-  - Dùng [librime](https://github.com/rime/librime) với bộ `pinyin_simp` chính thức.
-  - Bảng ứng viên hiện ngay cạnh con trỏ.
+  - Phím chuyển chế độ: Ctrl+Shift (mặc định), Ctrl+Space hoặc Alt+Z. Chữ **V/E/中** hiện trên thanh trạng thái.
+- **Gõ tiếng Trung (macOS, Windows và Linux):** thêm chế độ thứ ba, **中**, để gõ Pinyin giản thể.
+  - Dùng [librime](https://github.com/rime/librime) với bộ `pinyin_simp` chính thức. Bản Linux dùng librime và dữ liệu Rime từ kho gói của Ubuntu.
+  - Bảng ứng viên hiện ngay cạnh con trỏ; trên Linux đó là bảng ứng viên của IBus.
   - Bộ gõ tự học cụm từ. **Shift+Delete** hoặc **Control+K** xóa một cụm đã học.
   - Phím tắt chuyển chế độ xoay vòng **Tiếng Việt → English → 中**.
 - **Giao diện macOS mới:** bảng điều khiển, gõ tắt, chuyển mã và giới thiệu được thiết kế lại theo phong cách Cài đặt của macOS 26 (Tahoe).
@@ -126,14 +126,14 @@ Các bản sửa này được tích hợp từ 8 PR còn mở ở repo gốc: #
 
 ## Hướng dẫn nhanh
 
-- **Chuyển chế độ:** phím tắt xoay vòng **V → E → 中 → V** trên macOS và Windows; Windows mặc định **Alt+Z**. Trên Linux chỉ có **V ↔ E**, mặc định **Ctrl+Shift**. Có thể chọn trực tiếp trên menu bar hay khay hệ thống.
+- **Chuyển chế độ:** phím tắt xoay vòng **V → E → 中 → V**; Windows mặc định **Alt+Z**, Linux mặc định **Ctrl+Shift**. Có thể chọn trực tiếp trên menu bar, khay hệ thống hoặc thanh trạng thái của GNOME.
 - **Dùng phím 🌐 trên macOS:** vào **Cài đặt Hệ thống → Bàn phím** và đặt "Nhấn phím 🌐" thành **Không làm gì**.
 - **Chế độ 中:**
   - Gõ Pinyin.
   - **Space** chọn ứng viên đầu tiên, phím **1–7** hoặc bấm chuột để chọn ứng viên khác.
   - **−/=** hoặc **Page Up/Page Down** để lật trang.
   - **Esc** để hủy.
-  - Trên macOS, bật **Caps Lock** để gõ chữ Latin.
+  - Trên macOS và Linux, bật **Caps Lock** để gõ chữ Latin.
 
 ## Build và kiểm thử
 
@@ -151,7 +151,8 @@ bash scripts/build-linux.sh        # Linux: kiểm thử engine, build và đón
 Trên Ubuntu, cần cài trước các gói sau:
 
 ```bash
-sudo apt install build-essential cmake pkg-config libibus-1.0-dev libadwaita-1-dev
+sudo apt install build-essential cmake pkg-config libibus-1.0-dev libadwaita-1-dev \
+  librime-dev rime-data-pinyin-simp rime-prelude rime-essay
 ```
 
 ## Hạn chế đã biết
@@ -163,7 +164,7 @@ sudo apt install build-essential cmake pkg-config libibus-1.0-dev libadwaita-1-d
   - sleep/wake
   - Login Items
   - khóa/mở khóa trên Windows
-- **Tiếng Trung:** chỉ có trên macOS và Windows, và chỉ hỗ trợ Pinyin giản thể. Bản Linux chưa có.
+- **Tiếng Trung:** chỉ hỗ trợ Pinyin giản thể. Bản Linux cần các gói `rime-data-pinyin-simp`, `rime-prelude` và `rime-essay` (gói `.deb` tự kéo về); lần đầu vào chế độ 中, Rime cần vài giây để chuẩn bị dữ liệu.
 - **Linux:**
   - Bản Linux còn mới, mới được thử trên Ubuntu 26.04 với GNOME, Firefox, LibreOffice và Terminal.
   - Chế độ "Sửa trực tiếp" cần quyền dùng `/dev/uinput`. Gói cài thêm một quy tắc udev cấp quyền này cho người đang đăng nhập. Nhờ vậy mọi chương trình chạy dưới tài khoản đó cũng giả lập được phím bấm.

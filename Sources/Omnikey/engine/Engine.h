@@ -68,6 +68,10 @@ extern int vFreeMark;
  */
 extern int vCodeTable;
 
+// A code table index read from damaged preferences must not index past the tables.
+#define CODE_TABLE_COUNT 5
+#define CURRENT_CODE_TABLE _codeTable[(vCodeTable >= 0 && vCodeTable < CODE_TABLE_COUNT) ? vCodeTable : 0]
+
 /*
  * first 8 bit: keycode
  * bit 8: Control on/off

@@ -167,6 +167,7 @@ updates and repeat updates, and checks that corrupt ZIPs, missing dictionaries
 and locked application files fail without deleting the previous application.
 
 The Windows updater downloads `releases/download/v<version>/Omnikey-<version>-Windows.zip`,
+and `SHA256SUMS.txt` from the same release, refuses a ZIP whose SHA-256 is not listed there,
 waits for extraction, and copies both the matching EXE and its Rime payload. The
 app launches a temporary copy of its bundled helper so the update can replace
 the helper too. An initial update through the legacy 2.0.6 helper leaves Rime in

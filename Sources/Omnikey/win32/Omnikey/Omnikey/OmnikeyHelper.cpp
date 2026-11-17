@@ -106,10 +106,15 @@ void OmnikeyHelper::registerRunOnStartup(const int& val) {
 	WinExec("schtasks /delete /tn OpenKey /f", SW_HIDE);
 	if (val) {
 		if (vRunAsAdmin) {
-			string path = wideStringToUtf8(getFullPath());
-			char buff[MAX_PATH];
-			sprintf_s(buff, "schtasks /create /sc onlogon /tn Omnikey /rl highest /tr \"%s\" /f", path.c_str());
-			WinExec(buff, SW_HIDE);
+			// Wide command line with the path quoted inside /tr, so paths with
+			// spaces, Vietnamese letters or more than MAX_PATH bytes work.
+			wstring command = L"schtasks /create /sc onlogon /tn Omnikey /rl highest /tr \"\\\"" + getFullPath() + L"\\\"\" /f";
+			STARTUPINFOW startup = { sizeof(startup) };
+			PROCESS_INFORMATION process = {};
+			if (CreateProcessW(nullptr, &command[0], nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process)) {
+				CloseHandle(process.hThread);
+				CloseHandle(process.hProcess);
+			}
 		} else {
 			RegOpenKeyEx(HKEY_CURRENT_USER, _runOnStartupKeyPath, NULL, KEY_ALL_ACCESS, &hKey);
 			wstring path = getFullPath();
@@ -140,9 +145,13 @@ string& OmnikeyHelper::getFrontMostAppExecuteName() {
 		return _exeNameUtf8;
 	}
 	_cacheProcessId = _tempProcessId;
-	_proc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, _tempProcessId);
-	GetProcessImageFileName((HMODULE)_proc, _exePath, 1024);
-	CloseHandle(_proc);
+	// An elevated app cannot be opened: do not keep the previous app's path.
+	_exePath[0] = 0;
+	_proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, _tempProcessId);
+	if (_proc) {
+		GetProcessImageFileName(_proc, _exePath, 1024);
+		CloseHandle(_proc);
+	}
 	
 	if (wcscmp(_exePath, _T("")) == 0) {
 		return _unknownProgram;
@@ -238,10 +247,48 @@ void OmnikeyHelper::setClipboardText(LPCTSTR data, const int & len, const int& t
 	HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, len * sizeof(WCHAR));
 	memcpy(GlobalLock(hMem), data, len * sizeof(WCHAR));
 	GlobalUnlock(hMem);
-	OpenClipboard(0);
+	if (!OpenClipboard(0)) {
+		GlobalFree(hMem);
+		return;
+	}
 	EmptyClipboard();
-	SetClipboardData(type, hMem);
+	if (!SetClipboardData(type, hMem)) GlobalFree(hMem);
 	CloseClipboard();
+}
+
+// CF_HTML is a header of byte offsets followed by the HTML they point into.
+// Only the HTML is converted, and the offsets are written again for its new
+// length. False when the data does not have that layout.
+static bool convertClipboardHtml(string& data) {
+	auto findField = [](const string& header, const char* name, size_t& digits, size_t& width) {
+		size_t at = header.find(name);
+		if (at == string::npos) return false;
+		digits = at + strlen(name);
+		width = 0;
+		while (digits + width < header.size() && header[digits + width] >= '0' && header[digits + width] <= '9') width++;
+		return width > 0;
+	};
+	size_t digits = 0, width = 0;
+	if (!findField(data, "StartHTML:", digits, width) || width > 18) return false;
+	size_t start = (size_t)strtoull(data.substr(digits, width).c_str(), nullptr, 10);
+	if (start <= digits + width || start > data.size()) return false;
+	string header = data.substr(0, start);
+	string html = convertUtil(data.substr(start));
+	size_t fragmentStart = html.find("<!--StartFragment-->");
+	size_t fragmentEnd = html.find("<!--EndFragment-->");
+	if (fragmentStart == string::npos || fragmentEnd == string::npos) return false;
+	auto setField = [&](const char* name, size_t value) {
+		if (!findField(header, name, digits, width)) return false;
+		string number = to_string(value);
+		if (number.size() > width) return false;
+		header.replace(digits, width, string(width - number.size(), '0') + number); // same width: the header keeps its length
+		return true;
+	};
+	if (!setField("EndHTML:", start + html.size()) ||
+		!setField("StartFragment:", start + fragmentStart + strlen("<!--StartFragment-->")) ||
+		!setField("EndFragment:", start + fragmentEnd)) return false;
+	data = header + html;
+	return true;
 }
 
 bool OmnikeyHelper::quickConvert() {
@@ -266,7 +313,7 @@ bool OmnikeyHelper::quickConvert() {
 	}
 	if (pHTML) {
 		dataHTML = pHTML;
-		dataHTML = convertUtil(dataHTML);
+		if (!convertClipboardHtml(dataHTML)) pHTML = 0; // put back the text only
 	}
 
 	//UNICODE
@@ -280,18 +327,30 @@ bool OmnikeyHelper::quickConvert() {
 		dataUnicode = utf8ToWideString(convertUtil(wideStringToUtf8(dataUnicode)));
 	}
 
-	OpenClipboard(0);
+	// Nothing to convert (an image, files): leave the clipboard as it is.
+	if (!pHTML && !pUnicode) {
+		CloseClipboard();
+		return false;
+	}
 	EmptyClipboard();
 
-	HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, (int)(dataHTML.size() + 1) * sizeof(char));
-	memcpy(GlobalLock(hMem), dataHTML.c_str(), (int)(dataHTML.size() + 1) * sizeof(char));
-	GlobalUnlock(hMem);
-	SetClipboardData(CF_HTML, hMem);
-
-	hMem = GlobalAlloc(GMEM_MOVEABLE, (int)(dataUnicode.size() + 1) * sizeof(wchar_t));
-	memcpy(GlobalLock(hMem), dataUnicode.c_str(), (int)(dataUnicode.size() + 1) * sizeof(wchar_t));
-	GlobalUnlock(hMem);
-	SetClipboardData(CF_UNICODETEXT, hMem);
+	// Put back only the formats that were there.
+	if (pHTML) {
+		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, (dataHTML.size() + 1) * sizeof(char));
+		if (hMem) {
+			memcpy(GlobalLock(hMem), dataHTML.c_str(), (dataHTML.size() + 1) * sizeof(char));
+			GlobalUnlock(hMem);
+			if (!SetClipboardData(CF_HTML, hMem)) GlobalFree(hMem);
+		}
+	}
+	if (pUnicode) {
+		HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, (dataUnicode.size() + 1) * sizeof(wchar_t));
+		if (hMem) {
+			memcpy(GlobalLock(hMem), dataUnicode.c_str(), (dataUnicode.size() + 1) * sizeof(wchar_t));
+			GlobalUnlock(hMem);
+			if (!SetClipboardData(CF_UNICODETEXT, hMem)) GlobalFree(hMem);
+		}
+	}
 
 	CloseClipboard();
 	return true;

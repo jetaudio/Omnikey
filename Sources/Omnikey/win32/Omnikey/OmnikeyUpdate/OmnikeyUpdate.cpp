@@ -84,57 +84,68 @@ INT_PTR CALLBACK MainDialogProcess(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
 DWORD WINAPI UpdateThreadFunction(LPVOID lpParam) {
 	WCHAR path[MAX_PATH];
+	WCHAR sumsPath[MAX_PATH];
 	WCHAR currentDir[MAX_PATH];
 	GetCurrentDirectory(MAX_PATH, currentDir);
+	BOOL host64 = FALSE;
+#ifdef _WIN64
+	host64 = TRUE;
+#else
+	IsWow64Process(GetCurrentProcess(), &host64);
+#endif
+	const wchar_t* mainExe = updateTarget ? updateTarget : (host64 && GetFileAttributesW(L"Omnikey64.exe") != INVALID_FILE_ATTRIBUTES
+		? L"Omnikey64.exe" : L"Omnikey32.exe");
+	// Omnikey quit to let this updater run: on any failure the installed
+	// version is started again, so the user is not left without it.
+	auto fail = [&](const wchar_t* message) {
+		MessageBox(hDlg, message, _T("Omnikey Update"), MB_OK | MB_ICONERROR);
+		RestartOmnikey(currentDir, mainExe);
+		ExitProcess(0);
+	};
+	const wchar_t* tryLater = L"Có lỗi trong quá trình cập nhật, vui lòng thử lại sau!";
+
 	wsprintf(path, TEXT("%s\\_Omnikey.tempf"), currentDir);
 	HRESULT res = URLDownloadToFile(NULL, L"https://raw.githubusercontent.com/jetaudio/Omnikey/master/version.json", path, 0, NULL);
-
+	if (res != S_OK) { fail(tryLater); return 0; }
 	wstring data;
-	if (res == S_OK) {
+	{
 		std::wifstream t(path);
 		std::wstringstream buffer;
 		buffer << t.rdbuf();
 		t.close();
 		DeleteFile(path);
 		data = buffer.str();
-	} else {
-		MessageBox(hDlg, _T("Có lỗi trong quá trình cập nhật, vui lòng thử lại sau!"), _T("Omnikey Update"), MB_OK);
-		ExitProcess(0);
+	}
+
+	//simple parse; the name goes into a URL, so only a plain version number is accepted
+	wstring versionName;
+	size_t begin = data.find(L"latestWinVersion");
+	if (begin != wstring::npos) begin = data.find(L"\"versionName\":", begin);
+	if (begin != wstring::npos) begin = data.find(L'"', begin + 14);
+	size_t end = begin == wstring::npos ? begin : data.find(L'"', begin + 1);
+	if (end != wstring::npos) versionName = data.substr(begin + 1, end - begin - 1);
+	if (versionName.empty() || versionName.size() > 32 || versionName.find_first_not_of(L"0123456789.") != wstring::npos) {
+		fail(tryLater);
 		return 0;
 	}
 
-	//simple parse
-	data = data.substr(data.find(L"latestWinVersion"));
-	data = data.substr(data.find(L"\"versionName\":"));
-	data = data.substr(14);
-	data = data.substr(data.find(L"\""));
-	data = data.substr(1);
-	wstring versionName = data.substr(0, data.find(L"\""));
-	
-	//download zip file
-	WCHAR updateUrl[MAX_PATH];
-	wsprintf(updateUrl, TEXT("https://github.com/jetaudio/Omnikey/releases/download/v%s/Omnikey-%s-Windows.zip"),
-		versionName.c_str(),
-		versionName.c_str());
+	//download zip file and the release checksums the apply script verifies it against
+	wstring releaseUrl = L"https://github.com/jetaudio/Omnikey/releases/download/v" + versionName + L"/";
+	wstring updateUrl = releaseUrl + L"Omnikey-" + versionName + L"-Windows.zip";
+	wstring sumsUrl = releaseUrl + L"SHA256SUMS.txt";
 	wsprintf(path, TEXT("%s\\_OmnikeyUpdate.zip"), currentDir);
-	res = URLDownloadToFile(NULL, updateUrl, path, 0, NULL);
+	wsprintf(sumsPath, TEXT("%s\\_OmnikeyUpdate.sha256"), currentDir);
+	res = URLDownloadToFile(NULL, updateUrl.c_str(), path, 0, NULL);
+	if (res == S_OK) res = URLDownloadToFile(NULL, sumsUrl.c_str(), sumsPath, 0, NULL);
 
 	if (res == S_OK) {
-		BOOL host64 = FALSE;
-#ifdef _WIN64
-		host64 = TRUE;
-#else
-		IsWow64Process(GetCurrentProcess(), &host64);
-#endif
-		const wchar_t* mainExe = updateTarget ? updateTarget : (host64 && GetFileAttributesW(L"Omnikey64.exe") != INVALID_FILE_ATTRIBUTES
-			? L"Omnikey64.exe" : L"Omnikey32.exe");
 		// Wait for extraction/copy and keep the old EXE until the package is valid.
 		// Relative literal paths avoid quoting user-controlled installation paths.
 		HRSRC resource = FindResourceW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(201), RT_RCDATA);
 		HGLOBAL loaded = resource ? LoadResource(GetModuleHandleW(nullptr), resource) : nullptr;
 		const char* bytes = loaded ? static_cast<const char*>(LockResource(loaded)) : nullptr;
 		DWORD byteCount = resource ? SizeofResource(GetModuleHandleW(nullptr), resource) : 0;
-		if (!bytes || !byteCount) { ExitProcess(1); return 1; }
+		if (!bytes || !byteCount) { fail(tryLater); return 1; }
 		int characters = MultiByteToWideChar(CP_UTF8, 0, bytes, byteCount, nullptr, 0);
 		wstring script(characters, L'\0');
 		MultiByteToWideChar(CP_UTF8, 0, bytes, byteCount, &script[0], characters);
@@ -142,7 +153,7 @@ DWORD WINAPI UpdateThreadFunction(LPVOID lpParam) {
 		DWORD encodedSize = 0;
 		CryptBinaryToStringW(reinterpret_cast<const BYTE*>(script.data()), (DWORD)(script.size() * sizeof(wchar_t)), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, nullptr, &encodedSize);
 		wstring encoded(encodedSize, L'\0');
-		if (!CryptBinaryToStringW(reinterpret_cast<const BYTE*>(script.data()), (DWORD)(script.size() * sizeof(wchar_t)), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, &encoded[0], &encodedSize)) { ExitProcess(1); return 1; }
+		if (!CryptBinaryToStringW(reinterpret_cast<const BYTE*>(script.data()), (DWORD)(script.size() * sizeof(wchar_t)), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, &encoded[0], &encodedSize)) { fail(tryLater); return 1; }
 		encoded.resize(encodedSize);
 		wstring command = L"powershell.exe -NoProfile -NonInteractive -EncodedCommand " + encoded;
 		STARTUPINFOW startup = { sizeof(startup) };
@@ -154,6 +165,7 @@ DWORD WINAPI UpdateThreadFunction(LPVOID lpParam) {
 			CloseHandle(process.hThread);
 			CloseHandle(process.hProcess);
 		}
+		DeleteFile(sumsPath);
 		if (result == 0) {
 			DeleteFile(path);
 			if (!RestartOmnikey(currentDir, mainExe)) {
@@ -161,12 +173,13 @@ DWORD WINAPI UpdateThreadFunction(LPVOID lpParam) {
 				ExitProcess(1);
 			}
 		} else {
-			MessageBox(hDlg, _T("Không cập nhật được Omnikey. Hãy tải và giải nén đầy đủ gói Windows từ trang release."), _T("Omnikey Update"), MB_OK | MB_ICONERROR);
+			fail(L"Không cập nhật được Omnikey. Hãy tải và giải nén đầy đủ gói Windows từ trang release.");
 		}
 		ExitProcess(0);
 	} else {
-		MessageBox(hDlg, _T("Có lỗi trong quá trình cập nhật, vui lòng thử lại sau!"), _T("Omnikey Update"), MB_OK);
-		ExitProcess(0);
+		DeleteFile(path);
+		DeleteFile(sumsPath);
+		fail(tryLater);
 	}
 	return 0;
 }

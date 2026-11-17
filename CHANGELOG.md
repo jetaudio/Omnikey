@@ -8,6 +8,57 @@ The fork is based on upstream [tuyenvm/OpenKey](https://github.com/tuyenvm/OpenK
 identified by the source commit in their file name, for example
 `OpenKey-2.0.5-<commit>-universal.dmg`. The upstream history is kept below.
 
+## [2.0.11] - 2026-11-17
+
+### Added
+
+- Linux: Chinese input (中) through librime with the `pinyin_simp` schema from
+  Ubuntu's rime-data packages, as on macOS and Windows. The switch key cycles
+  Vietnamese → English → 中, the top-bar indicator has a menu for the three
+  modes, and IBus shows the candidates. The settings app selects the mode.
+
+### Fixed
+
+- All platforms: with quick consonants on and spell checking off, a word of 31
+  letters or more crashed the app at the next space or punctuation mark.
+- All platforms: macros whose name contains a standalone `w` (ư), a restored
+  double key (`aaa` → `aa`) or a quick Telex pair (`cc` → `ch`) now expand.
+- All platforms: damaged macro data, a macro file that is not UTF-8, clipboard
+  text that is not valid Unicode and an out-of-range code table or input type
+  in the settings no longer crash or read past the data. Macros with a name
+  over 255 bytes or content over 65,535 bytes are refused instead of
+  corrupting the saved list.
+- macOS: with "Sửa lỗi trên Chromium" on, typing Vietnamese in Google Sheets
+  in Chrome, Edge or Brave no longer erases the cell on the left. The option
+  replaced the last letter with Shift+Left, which in a sheet selects the
+  neighbouring cell. It now does that only in the browser's address bar, and
+  pages use the same method as when the option is off.
+- macOS: in 中 mode, Command shortcuts on Space, Delete, Return and the arrow
+  keys reach the app instead of Rime.
+- Windows: the switch key no longer sticks in English
+  while Pinyin is unavailable; a macro in English mode no longer types its
+  trigger key twice; smart switch keeps the language and code table apart;
+  macros follow a code table change; quick convert leaves a clipboard without
+  text alone; a hung app can no longer stall the keyboard hook; run-as-admin
+  startup works for paths with spaces or Vietnamese letters; cancelling the
+  UAC prompt or a missing updater no longer quits Omnikey; the update check
+  compares major before minor; quick convert keeps copied HTML valid.
+- Windows: the updater checks the downloaded ZIP against the release's
+  `SHA256SUMS.txt`, and starts the installed version again when an update
+  fails instead of leaving Omnikey closed.
+- Linux: the engine no longer leaks the surrounding
+  text on each query, emoji in macro content are typed correctly, a second
+  Rime start after a failed one no longer aborts, and a modifier left held
+  across a focus change no longer disturbs the next switch-key tap.
+- Linux: in underline (preedit) mode, a macro whose name contains punctuation
+  (`->`) no longer leaves the name in front of its expansion.
+
+### Upgrade notes
+
+- All three platforms are 2.0.11. The macOS build number is 54.
+- The Windows and Linux fixes in this release were compiled and tested in CI
+  only; they were not typed with on a Windows or Linux desktop.
+
 ## [2.0.10] - 2026-10-19
 
 ### Changed

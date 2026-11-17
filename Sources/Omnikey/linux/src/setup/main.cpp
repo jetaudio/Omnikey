@@ -63,6 +63,28 @@ static GtkWidget* comboRow(const char* title, const char* subtitle, const char* 
     return row;
 }
 
+// The input mode is stored as vLanguage plus vChineseMode: V, E or 中.
+static void onModeChanged(AdwComboRow* row, GParamSpec*, gpointer) {
+    guint mode = adw_combo_row_get_selected(row);
+    OmnikeyConfig::load();
+    vLanguage = mode == 0 ? 1 : 0;
+    vChineseMode = mode == 2 ? 1 : 0;
+    OmnikeyConfig::save();
+}
+
+static GtkWidget* modeRow() {
+    static const char* const modes[] = {"Tiếng Việt", "English", "中文 (Pinyin)", NULL};
+    GtkWidget* row = adw_combo_row_new();
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(row), "Chế độ gõ");
+    adw_action_row_set_subtitle(ADW_ACTION_ROW(row), "Tiếng Trung dùng Pinyin giản thể qua Rime");
+    GtkStringList* model = gtk_string_list_new(modes);
+    adw_combo_row_set_model(ADW_COMBO_ROW(row), G_LIST_MODEL(model));
+    g_object_unref(model);
+    adw_combo_row_set_selected(ADW_COMBO_ROW(row), vChineseMode ? 2 : (vLanguage ? 0 : 1));
+    g_signal_connect(row, "notify::selected", G_CALLBACK(onModeChanged), NULL);
+    return row;
+}
+
 static GtkWidget* group(const char* title, const char* description) {
     GtkWidget* g = adw_preferences_group_new();
     if (title) adw_preferences_group_set_title(ADW_PREFERENCES_GROUP(g), title);
@@ -180,14 +202,14 @@ static GtkWidget* typingPage() {
     GtkWidget* page = adw_preferences_page_new();
 
     GtkWidget* input = group("Bộ gõ", NULL);
-    addRow(input, switchRow("Gõ tiếng Việt", "Tắt để gõ tiếng Anh", &vLanguage));
+    addRow(input, modeRow());
     static const char* const inputTypes[] = {"Telex", "VNI", "Simple Telex 1", "Simple Telex 2", NULL};
     addRow(input, comboRow("Kiểu gõ", NULL, inputTypes, &vInputType));
     static const char* const codeTables[] = {"Unicode dựng sẵn", "TCVN3 (ABC)", "VNI Windows",
                                              "Unicode tổ hợp", "Vietnamese Locale CP 1258", NULL};
     addRow(input, comboRow("Bảng mã", NULL, codeTables, &vCodeTable));
     static const char* const switchKeys[] = {"Không dùng", "Ctrl + Shift", "Ctrl + Space", "Alt + Z", NULL};
-    addRow(input, comboRow("Phím chuyển Việt / Anh", "Có thể bấm chữ V / E trên thanh trạng thái", switchKeys, &vSwitchKey));
+    addRow(input, comboRow("Phím chuyển chế độ", "Xoay vòng Tiếng Việt → English → 中; cũng chọn được trên thanh trạng thái", switchKeys, &vSwitchKey));
     adw_preferences_page_add(ADW_PREFERENCES_PAGE(page), ADW_PREFERENCES_GROUP(input));
 
     GtkWidget* output = group("Cách đưa chữ vào ứng dụng", NULL);

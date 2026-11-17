@@ -173,6 +173,7 @@ void AppDelegate::onDefaultConfig() {
 	APP_SET_DATA(vInputType, 0);
 	vFreeMark = 0;
 	APP_SET_DATA(vCodeTable, 0);
+	onTableCodeChange();
 	APP_SET_DATA(vCheckSpelling, 1);
 	APP_SET_DATA(vUseModernOrthography, 0);
 	APP_SET_DATA(vQuickTelex, 0);
@@ -296,7 +297,10 @@ void AppDelegate::onInputType(const int & type) {
 }
 
 void AppDelegate::onTableCode(const int & code) {
-	APP_SET_DATA(vCodeTable, code);
+	// The index may come from remembered per-app data; macros are stored
+	// encoded for the current table.
+	APP_SET_DATA(vCodeTable, (code < 0 || code > 4) ? 0 : code);
+	onTableCodeChange();
 	if (mainDialog) {
 		mainDialog->fillData();
 	}

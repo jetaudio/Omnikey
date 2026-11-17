@@ -35,6 +35,7 @@ int vTempOffOmnikey = 0;
 
 int vOutputMode = OutputPreedit;
 int vSwitchKey = SwitchCtrlShift;
+int vChineseMode = 0;
 
 static const char* GROUP = "Omnikey";
 
@@ -57,6 +58,7 @@ static const struct { const char* key; int* value; } SETTINGS[] = {
     {"TempOffOmnikey", &vTempOffOmnikey},
     {"OutputMode", &vOutputMode},
     {"SwitchKey", &vSwitchKey},
+    {"ChineseMode", &vChineseMode},
 };
 
 namespace OmnikeyConfig {
@@ -114,7 +116,9 @@ void load() {
     if (vInputType < vTelex || vInputType > vSimpleTelex2) vInputType = vTelex;
     if (vCodeTable < 0 || vCodeTable > 4) vCodeTable = 0;
     if (vSwitchKey < 0 || vSwitchKey >= SwitchKeyCount) vSwitchKey = SwitchCtrlShift;
-    vLanguage = vLanguage ? 1 : 0;
+    vChineseMode = vChineseMode ? 1 : 0;
+    // 中 keeps the Vietnamese engine in English, as on macOS and Windows.
+    vLanguage = vLanguage && !vChineseMode ? 1 : 0;
     vSetCheckSpelling();
 }
 

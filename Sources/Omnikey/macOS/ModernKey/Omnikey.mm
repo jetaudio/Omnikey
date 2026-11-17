@@ -86,11 +86,12 @@ extern "C" {
     NSString* _frontMostApp = @"UnknownApp";
 
     int vChineseMode = 0; // 1 while 中 (Pinyin through Rime) is the input mode
+    int _addressBarFocused = -1; // see isAddressBarFocused; -1: not asked yet for the current word
     
     void OmnikeyInit() {
         //load saved data
         vFreeMark = 0;//(int)[[NSUserDefaults standardUserDefaults] integerForKey:@"FreeMark"];
-        LOAD_DATA(vCodeTable, CodeTable); if (vCodeTable < 0) vCodeTable = 0;
+        LOAD_DATA(vCodeTable, CodeTable); if (vCodeTable < 0 || vCodeTable > 4) vCodeTable = 0;
         LOAD_DATA(vCheckSpelling, Spelling);
         LOAD_DATA(vQuickTelex, QuickTelex);
         LOAD_DATA(vUseModernOrthography, ModernOrthography);
@@ -153,6 +154,7 @@ extern "C" {
         vKeyHandleEvent(vKeyEvent::Mouse, vKeyEventState::MouseDown, 0);
         
         _syncKey.clear();
+        _addressBarFocused = -1;
     }
 
     void OmnikeyFree() {
@@ -230,6 +232,39 @@ extern "C" {
         return ![_recommendWorkaroundDisabledApp containsObject:topApp];
     }
 
+    // The Chromium fix replaces the last character with Shift+Left instead of
+    // typing an empty character first. That is safe only in the browser's own
+    // address bar. In a page the arrow can leave the field: Google Sheets
+    // extends the selection to the cell on the left, and the next key then
+    // erases that cell.
+    BOOL isAddressBarFocused(pid_t pid) {
+        if (_addressBarFocused >= 0) return _addressBarFocused;
+        _addressBarFocused = 0; // any failure keeps the empty-character method
+        AXUIElementRef app = AXUIElementCreateApplication(pid);
+        if (app == NULL) return NO;
+        AXUIElementSetMessagingTimeout(app, 0.02f);
+        CFTypeRef element = NULL;
+        if (AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute, &element) != kAXErrorSuccess) element = NULL;
+        CFRelease(app);
+        // The address bar is a text field inside the window's toolbar.
+        for (int level = 0; element != NULL && level <= 3; level++) {
+            AXUIElementSetMessagingTimeout((AXUIElementRef)element, 0.02f);
+            CFTypeRef role = NULL;
+            if (AXUIElementCopyAttributeValue((AXUIElementRef)element, kAXRoleAttribute, &role) != kAXErrorSuccess) role = NULL;
+            BOOL match = role != NULL && CFGetTypeID(role) == CFStringGetTypeID() &&
+                CFEqual(role, level == 0 ? kAXTextFieldRole : kAXToolbarRole);
+            if (role != NULL) CFRelease(role);
+            if (level == 0 && !match) break;
+            if (level > 0 && match) { _addressBarFocused = 1; break; }
+            CFTypeRef parent = NULL;
+            if (AXUIElementCopyAttributeValue((AXUIElementRef)element, kAXParentAttribute, &parent) != kAXErrorSuccess) parent = NULL;
+            CFRelease(element);
+            element = parent;
+        }
+        if (element != NULL) CFRelease(element);
+        return _addressBarFocused;
+    }
+
     BOOL shouldUseSelectionReplacement(NSString* topApp) {
         return isSpotlightVisible();
     }
@@ -248,6 +283,7 @@ extern "C" {
     }
 
     void OnActiveAppChanged() { //use for smart switch key; improved on Sep 28th, 2019
+        _addressBarFocused = -1;
         if (vChineseMode) { // 中 stays on across apps; per-app memory is for V/E
             ChineseModeReset();
             return;
@@ -803,7 +839,10 @@ extern "C" {
                             _keycode,
                             _flag & kCGEventFlagMaskShift ? 1 : (_flag & kCGEventFlagMaskAlphaShift ? 2 : 0),
                             OTHER_CONTROL_KEY);
+            // Tab, Return, arrows and shortcuts can move the focus: ask again for the next word.
+            const bool wordBreak = pData->extCode == 1;
             if (pData->code == vDoNothing) { //do nothing
+                if (wordBreak) _addressBarFocused = -1;
                 if (IS_DOUBLE_CODE(vCodeTable)) { //VNI
                     if (pData->extCode == 1) { //break key
                         _syncKey.clear();
@@ -827,7 +866,8 @@ extern "C" {
                 BOOL selectionReplacement = shouldUseSelectionReplacement(frontApp);
                 //fix autocomplete
                 if (!selectionReplacement && shouldUseRecommendWorkaround(frontApp) && pData->extCode != 4) {
-                    if (vFixChromiumBrowser && [_unicodeCompoundApp containsObject:frontApp]) {
+                    if (vFixChromiumBrowser && [_unicodeCompoundApp containsObject:frontApp] &&
+                        isAddressBarFocused([[NSWorkspace sharedWorkspace] frontmostApplication].processIdentifier)) {
                         if (pData->backspaceCount > 0) {
                             SendShiftAndLeftArrow();
                             if (pData->backspaceCount == 1)
@@ -877,6 +917,7 @@ extern "C" {
             } else if (pData->code == vReplaceMaro) { //MACRO
                 handleMacro();
             }
+            if (wordBreak) _addressBarFocused = -1;
             
             return _willSendControlKey ? event : NULL;
         }

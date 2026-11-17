@@ -1,7 +1,8 @@
 #!/bin/bash
 # Builds the IBus engine and the GTK settings app, runs the engine regression
-# tests, and packages everything as a .deb in dist/.
-#   sudo apt install build-essential cmake pkg-config libibus-1.0-dev libadwaita-1-dev
+# and Chinese input tests, and packages everything as a .deb in dist/.
+#   sudo apt install build-essential cmake pkg-config libibus-1.0-dev libadwaita-1-dev \
+#     librime-dev rime-data-pinyin-simp rime-prelude rime-essay
 set -euo pipefail
 cd "$(dirname "$0")/.."
 jobs="${JOBS:-4}"
@@ -14,6 +15,7 @@ g++ -std=c++17 -DLINUX -Wno-deprecated-declarations -I Sources/Omnikey/engine \
 
 cmake -S Sources/Omnikey/linux -B build/linux -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release
 cmake --build build/linux -j "$jobs"
+build/linux/omnikey-rime-tests
 (cd build/linux && cpack -G DEB -B "$PWD/../../dist" >/dev/null)
 rm -rf dist/_CPack_Packages
 ls -1 dist/*.deb

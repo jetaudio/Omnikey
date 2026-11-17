@@ -124,12 +124,22 @@ void findAndCalculateVowel(const bool& forGrammar=false);
 void insertMark(const Uint32& markMask, const bool& canModifyFlag=true);
 
 static std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+//Text that is not valid UTF-8/UTF-16 (an ANSI macro file, a lone surrogate on
+//the clipboard) makes the converter throw; callers get an empty string instead.
 wstring utf8ToWideString(const string& str) {
-    return converter.from_bytes(str.c_str());
+    try {
+        return converter.from_bytes(str.c_str());
+    } catch (const std::range_error&) {
+        return wstring();
+    }
 }
 
 string wideStringToUtf8(const wstring& str) {
-    return converter.to_bytes(str.c_str());
+    try {
+        return converter.to_bytes(str.c_str());
+    } catch (const std::range_error&) {
+        return string();
+    }
 }
 
 void* vKeyInit() {
@@ -509,8 +519,8 @@ Uint32 getCharacterCode(const Uint32& data) {
         } else if (data & TONEW_MASK) {
             key |= TONEW_MASK;
         }
-        auto it = _codeTable[vCodeTable].find(key);
-        if (it == _codeTable[vCodeTable].end())
+        auto it = CURRENT_CODE_TABLE.find(key);
+        if (it == CURRENT_CODE_TABLE.end())
             return data; //not found
 
         return it->second[markElem] | CHAR_CODE_MASK;
@@ -518,8 +528,8 @@ Uint32 getCharacterCode(const Uint32& data) {
         if (!(data & (TONE_MASK | TONEW_MASK)))
             return data; //not found
 
-        auto it = _codeTable[vCodeTable].find(key);
-        if (it == _codeTable[vCodeTable].end())
+        auto it = CURRENT_CODE_TABLE.find(key);
+        if (it == CURRENT_CODE_TABLE.end())
             return data; //not found
 
         if (data & TONE_MASK) {
@@ -1203,12 +1213,12 @@ bool checkQuickConsonant() {
     if (_index <= 1) return false;
     l = 0;
     if (_index > 0) {
-        if (vQuickStartConsonant && _quickStartConsonant.find(CHR(0)) != _quickStartConsonant.end()) {
+        //each expansion adds one character, so it needs a free slot in TypingWord
+        if (vQuickStartConsonant && _index < MAX_BUFF && _quickStartConsonant.find(CHR(0)) != _quickStartConsonant.end()) {
             hCode = vRestore;
             hBPC = _index;
             hNCC = _index + 1;
-            if (_index < MAX_BUFF-1)
-                _index++;
+            _index++;
             //right shift
             for (i = _index-1; i >= 2; i--) {
                 TypingWord[i] = TypingWord[i-1];
@@ -1217,7 +1227,7 @@ bool checkQuickConsonant() {
             TypingWord[0] = _quickStartConsonant[CHR(0)][0] | (TypingWord[0] & CAPS_MASK ? CAPS_MASK : 0);
             l = 1;;
         }
-        if (vQuickEndConsonant &&
+        if (vQuickEndConsonant && _index < MAX_BUFF &&
             (_index-2 >= 0 && !IS_CONSONANT(CHR(_index-2))) &&
             _quickEndConsonant.find(CHR(_index-1)) != _quickEndConsonant.end()) {
             hCode = vRestore;
@@ -1227,8 +1237,7 @@ bool checkQuickConsonant() {
                 hBPC = 1;
                 hNCC = 2;
             }
-            if (_index < MAX_BUFF-1)
-                _index++;
+            _index++;
             TypingWord[_index-1] = _quickEndConsonant[CHR(_index-2)][1] | (TypingWord[_index-2] & CAPS_MASK ? CAPS_MASK : 0);
             TypingWord[_index-2] = _quickEndConsonant[CHR(_index-2)][0] | (TypingWord[_index-2] & CAPS_MASK ? CAPS_MASK : 0);
             
@@ -1451,6 +1460,8 @@ void vKeyHandleEvent(const vKeyEvent& event,
         if (!IS_SPECIALKEY(data) || tempDisableKey) { //do nothing
             if (vQuickTelex && IS_QUICK_TELEX_KEY(data)) {
                 handleQuickTelex(data, _isCaps);
+                if (vUseMacro) //the doubled key became another letter (cc -> ch)
+                    hMacroKey.push_back(TypingWord[_index - 1]);
                 return;
             } else {
                 hCode = vDoNothing;
@@ -1489,7 +1500,9 @@ void vKeyHandleEvent(const vKeyEvent& event,
                         hMacroKey.pop_back();
                     }
                 }
-                for (i = _index - hBPC; i < hNCC + (_index - hBPC); i++) {
+                //the word now ends with the hNCC new characters, plus this key after a restore
+                const int tail = hNCC + (hCode == vRestore ? 1 : 0);
+                for (i = _index > tail ? _index - tail : 0; i < _index; i++) {
                     hMacroKey.push_back(TypingWord[i]);
                 }
             }

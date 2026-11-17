@@ -148,5 +148,68 @@ int main() {
                 std::string("tone placement ") + word.keys + (modern ? " modern" : " old"));
     }
     vUseModernOrthography = 0;
+
+    // The macro key follows what is on screen: standalone w (ư), a restored
+    // double key (aaa -> aa), quick Telex (cc -> ch) and a moved tone.
+    auto tap = [&](Uint16 code) { vKeyHandleEvent(vKeyEvent::Keyboard, vKeyEventState::KeyDown, code, 0, false); };
+    auto macroFires = [&](std::initializer_list<Uint16> keys) {
+        vKeyHandleEvent(vKeyEvent::Mouse, vKeyEventState::MouseDown, 0);
+        for (Uint16 code : keys) tap(code);
+        tap(KEY_SPACE);
+        return typing->code == vReplaceMaro;
+    };
+    vUseMacro = 1;
+    initMacroMap(nullptr, 0);
+    addMacro(u8"tư", "1"); addMacro("aa", "2"); addMacro(u8"tá", "3"); addMacro("ch", "4"); addMacro(u8"hoàn", "5");
+    expect(macroFires({KEY_T, KEY_W}), "macro key with standalone w");
+    expect(macroFires({KEY_A, KEY_A, KEY_A}), "macro key after a restored double key");
+    expect(macroFires({KEY_T, KEY_A, KEY_S}), "macro key with a tone");
+    expect(macroFires({KEY_H, KEY_O, KEY_F, KEY_A, KEY_N}), "macro key after the tone moves");
+    expect(!macroFires({KEY_T, KEY_A}), "other words do not fire a macro");
+    vQuickTelex = 1;
+    expect(macroFires({KEY_C, KEY_C}), "macro key with quick Telex");
+    vQuickTelex = 0;
+
+    // Sizes are stored in one and two bytes; larger macros are refused and
+    // damaged saved data is not read past its end.
+    expect(!addMacro(std::string(300, 'a'), "x") && !addMacro("x", std::string(70000, 'a')), "oversized macro refused");
+    std::vector<Byte> savedMacros;
+    getMacroSaveData(savedMacros);
+    initMacroMap(savedMacros.data(), (int)savedMacros.size());
+    expect(hasMacro("ch") && hasMacro(u8"hoàn"), "macros survive a save and load");
+    for (size_t cut = 0; cut < savedMacros.size(); ++cut) {
+        std::vector<Byte> damaged(savedMacros.begin(), savedMacros.begin() + cut); // exact size: ASan sees overreads
+        initMacroMap(damaged.data(), (int)damaged.size());
+    }
+    initMacroMap(nullptr, 0);
+    vUseMacro = 0;
+
+    // Text that is not UTF-8 (an ANSI macro file, a damaged clipboard) is
+    // refused or left unchanged instead of throwing.
+    expect(convertUtil("Vi\xEA\xF2t") == "Vi\xEA\xF2t", "non-UTF-8 text is returned unchanged");
+    expect(!addMacro("\xEA\xF2", "x") && !hasMacro("\xEA\xF2") && !addMacro("", "x"), "macro without a valid name refused");
+
+    // Quick consonants add a character; a word that fills the buffer is left alone.
+    vQuickStartConsonant = vQuickEndConsonant = 1;
+    vCheckSpelling = 0; vSetCheckSpelling();
+    for (int length = 2; length <= MAX_BUFF + 8; ++length) {
+        vKeyHandleEvent(vKeyEvent::Mouse, vKeyEventState::MouseDown, 0);
+        tap(KEY_F);
+        for (int n = 1; n < length - 2; ++n) tap(KEY_B);
+        if (length > 2) tap(KEY_A);
+        tap(KEY_G);
+        tap(KEY_SPACE);
+        expect(typing->newCharCount <= MAX_BUFF, "quick consonant output fits the buffer");
+        if (length == 3) expect(typing->code == vRestore && typing->newCharCount == 5, "fag expands to phang");
+    }
+    vQuickStartConsonant = vQuickEndConsonant = 0;
+    vCheckSpelling = 1; vSetCheckSpelling();
+
+    // A code table index outside the tables falls back to Unicode.
+    for (int table : {-1, 5, 99}) {
+        vCodeTable = table;
+        expect(typeTelex(typing, "tieengs") == u8"tiếng", "invalid code table falls back to Unicode");
+    }
+    vCodeTable = 0;
     std::cout << "Engine regression tests: " << assertions << " assertions passed.\n";
 }
