@@ -221,15 +221,6 @@ void AppDelegate::onToggleVietnamese() {
 	}
 }
 
-// The hot key cycles V -> E -> Pinyin -> V. While Pinyin is unavailable it is
-// skipped: selecting it would only show a message from inside the keyboard
-// hook and leave the hot key stuck in English.
-void AppDelegate::cycleInputMode() {
-	if (vChineseMode) selectInputMode(1);
-	else if (vLanguage) selectInputMode(0);
-	else selectInputMode(ChineseInput::ready() ? 2 : 1);
-}
-
 void AppDelegate::selectInputMode(int mode) {
 	if (mode == 2 && !ChineseInput::ready()) {
 		MessageBoxW(nullptr, ChineseInput::status().c_str(), L"Omnikey Pinyin", MB_OK | MB_ICONINFORMATION);
