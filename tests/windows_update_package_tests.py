@@ -48,6 +48,16 @@ def apply(script, directory, target):
                           creationflags=subprocess.CREATE_NO_WINDOW).returncode
 
 
+def explain(script, directory, target):
+    """The reason an update failed: the apply script reports only an exit code."""
+    command = f"& {{ {script.replace('catch { exit 1 }', 'catch { $_ | Out-String; exit 1 }')} }} -MainExe '{target}'"
+    encoded = base64.b64encode(command.encode('utf-16-le')).decode('ascii')
+    result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
+                            cwd=directory, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            creationflags=subprocess.CREATE_NO_WINDOW)
+    return result.stdout.decode('utf-8', 'replace')
+
+
 def write_checksum(install, digest=None):
     """Write the release checksum list the updater downloads beside the package."""
     digest = digest or hashlib.sha256((install / '_OmnikeyUpdate.zip').read_bytes()).hexdigest()
@@ -75,7 +85,7 @@ def main(package):
                     (install / name).write_bytes(b'previous-' + name.encode())
                 shutil.copy2(package, install / '_OmnikeyUpdate.zip')
                 write_checksum(install)
-                assert apply(script, install, target) == 0, f'Update failed for {arch}'
+                assert apply(script, install, target) == 0, f'Update failed for {arch}: ' + explain(script, install, target)
                 assert (install / target).read_bytes() == archive.read(target), 'Wrong executable installed'
                 other = 'Omnikey32.exe' if arch == 'x64' else 'Omnikey64.exe'
                 assert (install / other).read_bytes() == b'previous-' + other.encode(), 'Unselected architecture changed'
